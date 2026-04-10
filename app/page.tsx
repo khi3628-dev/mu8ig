@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Listing } from "@/lib/types";
 
 type TradeTypeFilter = "all" | "sell" | "jeonse" | "monthly";
@@ -21,6 +21,8 @@ const TRADE_TYPE_LABELS: Record<TradeTypeFilter, string> = {
   monthly: "월세",
 };
 
+const VAULT_PATH_KEY = "obsidian-vault-path";
+
 function formatPrice(price: string, rentPrice: number, tradeType: string) {
   if (tradeType === "월세") {
     return `${price} / ${rentPrice}만`;
@@ -31,14 +33,29 @@ function formatPrice(price: string, rentPrice: number, tradeType: string) {
 export default function Home() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [tradeType, setTradeType] = useState<TradeTypeFilter>("all");
   const [scrapedAt, setScrapedAt] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
+  const [vaultPath, setVaultPath] = useState("");
+  const [showVaultConfig, setShowVaultConfig] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(VAULT_PATH_KEY);
+    if (saved) setVaultPath(saved);
+  }, []);
+
+  const saveVaultPath = (newPath: string) => {
+    setVaultPath(newPath);
+    localStorage.setItem(VAULT_PATH_KEY, newPath);
+  };
 
   const handleScrape = async () => {
     setLoading(true);
     setError(null);
+    setExportMsg(null);
     try {
       const response = await fetch(`/api/listings?tradeType=${tradeType}`);
       if (!response.ok) {
@@ -54,6 +71,43 @@ export default function Home() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExportToObsidian = async () => {
+    if (!vaultPath.trim()) {
+      setShowVaultConfig(true);
+      setError("Obsidian 볼트 경로를 먼저 설정해주세요.");
+      return;
+    }
+
+    setExporting(true);
+    setError(null);
+    setExportMsg(null);
+    try {
+      const response = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vaultPath: vaultPath.trim(),
+          listings,
+          scrapedAt,
+          tradeType,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "내보내기에 실패했습니다.");
+      }
+      setExportMsg(
+        `${data.totalFiles}개 파일 저장 완료 (요약 1 + 매물 ${data.listingFiles.length}건)`
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "내보내기에 실패했습니다."
+      );
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -104,6 +158,49 @@ export default function Home() {
               {new Date(scrapedAt).toLocaleString("ko-KR")} 기준 | 총{" "}
               {total}건
             </span>
+          )}
+        </div>
+
+        {/* Obsidian 볼트 설정 & 내보내기 */}
+        <div className="mb-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4">
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            <button
+              onClick={() => setShowVaultConfig(!showVaultConfig)}
+              className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
+            >
+              {showVaultConfig ? "▼" : "▶"} Obsidian 볼트 설정
+            </button>
+
+            {listings.length > 0 && (
+              <button
+                onClick={handleExportToObsidian}
+                disabled={exporting}
+                className="px-5 py-2 bg-purple-600 text-white rounded-full text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {exporting ? "저장 중..." : "Obsidian에 저장"}
+              </button>
+            )}
+
+            {exportMsg && (
+              <span className="text-sm text-green-600 dark:text-green-400">
+                {exportMsg}
+              </span>
+            )}
+          </div>
+
+          {showVaultConfig && (
+            <div className="mt-3 flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={vaultPath}
+                onChange={(e) => saveVaultPath(e.target.value)}
+                placeholder="Obsidian 볼트 경로 (예: /home/user/ObsidianVault)"
+                className="flex-1 px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg text-sm bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400"
+              />
+              <p className="text-xs text-zinc-400 sm:self-center">
+                볼트 내 &ldquo;부동산/&rdquo; 폴더에 자동 저장됩니다
+              </p>
+            </div>
           )}
         </div>
 
