@@ -1,64 +1,310 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from "react";
+import type { Listing } from "@/lib/types";
+
+type TradeTypeFilter = "all" | "sell" | "jeonse" | "monthly";
+
+interface ApiResponse {
+  region: string;
+  areaFilter: string;
+  tradeType: string;
+  total: number;
+  scrapedAt: string;
+  listings: Listing[];
+}
+
+const TRADE_TYPE_LABELS: Record<TradeTypeFilter, string> = {
+  all: "전체",
+  sell: "매매",
+  jeonse: "전세",
+  monthly: "월세",
+};
+
+const VAULT_PATH_KEY = "obsidian-vault-path";
+
+function formatPrice(price: string, rentPrice: number, tradeType: string) {
+  if (tradeType === "월세") {
+    return `${price} / ${rentPrice}만`;
+  }
+  return `${price}`;
+}
 
 export default function Home() {
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
+  const [tradeType, setTradeType] = useState<TradeTypeFilter>("all");
+  const [scrapedAt, setScrapedAt] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  const [vaultPath, setVaultPath] = useState("");
+  const [showVaultConfig, setShowVaultConfig] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(VAULT_PATH_KEY);
+    if (saved) setVaultPath(saved);
+  }, []);
+
+  const saveVaultPath = (newPath: string) => {
+    setVaultPath(newPath);
+    localStorage.setItem(VAULT_PATH_KEY, newPath);
+  };
+
+  const handleScrape = async () => {
+    setLoading(true);
+    setError(null);
+    setExportMsg(null);
+    try {
+      const response = await fetch(`/api/listings?tradeType=${tradeType}`);
+      if (!response.ok) {
+        throw new Error("크롤링 요청에 실패했습니다.");
+      }
+      const data: ApiResponse = await response.json();
+      setListings(data.listings);
+      setTotal(data.total);
+      setScrapedAt(data.scrapedAt);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExportToObsidian = async () => {
+    if (!vaultPath.trim()) {
+      setShowVaultConfig(true);
+      setError("Obsidian 볼트 경로를 먼저 설정해주세요.");
+      return;
+    }
+
+    setExporting(true);
+    setError(null);
+    setExportMsg(null);
+    try {
+      const response = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vaultPath: vaultPath.trim(),
+          listings,
+          scrapedAt,
+          tradeType,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "내보내기에 실패했습니다.");
+      }
+      setExportMsg(
+        `${data.totalFiles}개 파일 저장 완료 (요약 1 + 매물 ${data.listingFiles.length}건)`
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "내보내기에 실패했습니다."
+      );
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans">
+      <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+        <div className="max-w-6xl mx-auto px-6 py-6">
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+            서울 강동구 84m² 부동산 매물
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+            네이버 부동산 기반 실시간 매물 크롤링
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      </header>
+
+      <main className="max-w-6xl mx-auto px-6 py-8">
+        {/* 필터 & 검색 */}
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center mb-8">
+          <div className="flex gap-2">
+            {(
+              Object.entries(TRADE_TYPE_LABELS) as [TradeTypeFilter, string][]
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setTradeType(key)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  tradeType === key
+                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                    : "bg-white text-zinc-600 border border-zinc-300 hover:bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700 dark:hover:bg-zinc-700"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={handleScrape}
+            disabled={loading}
+            className="px-6 py-2 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            {loading ? "크롤링 중..." : "매물 검색"}
+          </button>
+
+          {scrapedAt && (
+            <span className="text-xs text-zinc-400">
+              {new Date(scrapedAt).toLocaleString("ko-KR")} 기준 | 총{" "}
+              {total}건
+            </span>
+          )}
         </div>
+
+        {/* Obsidian 볼트 설정 & 내보내기 */}
+        <div className="mb-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4">
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            <button
+              onClick={() => setShowVaultConfig(!showVaultConfig)}
+              className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
+            >
+              {showVaultConfig ? "▼" : "▶"} Obsidian 볼트 설정
+            </button>
+
+            {listings.length > 0 && (
+              <button
+                onClick={handleExportToObsidian}
+                disabled={exporting}
+                className="px-5 py-2 bg-purple-600 text-white rounded-full text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {exporting ? "저장 중..." : "Obsidian에 저장"}
+              </button>
+            )}
+
+            {exportMsg && (
+              <span className="text-sm text-green-600 dark:text-green-400">
+                {exportMsg}
+              </span>
+            )}
+          </div>
+
+          {showVaultConfig && (
+            <div className="mt-3 flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={vaultPath}
+                onChange={(e) => saveVaultPath(e.target.value)}
+                placeholder="Obsidian 볼트 경로 (예: /home/user/ObsidianVault)"
+                className="flex-1 px-4 py-2 border border-zinc-300 dark:border-zinc-700 rounded-lg text-sm bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400"
+              />
+              <p className="text-xs text-zinc-400 sm:self-center">
+                볼트 내 &ldquo;부동산/&rdquo; 폴더에 자동 저장됩니다
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* 로딩 */}
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className="w-8 h-8 border-4 border-zinc-300 border-t-blue-600 rounded-full animate-spin" />
+            <p className="text-zinc-500 dark:text-zinc-400">
+              강동구 매물을 크롤링하고 있습니다...
+            </p>
+            <p className="text-xs text-zinc-400">
+              단지 수에 따라 1~2분 소요될 수 있습니다.
+            </p>
+          </div>
+        )}
+
+        {/* 에러 */}
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+            <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* 결과 없음 */}
+        {!loading && !error && listings.length === 0 && !scrapedAt && (
+          <div className="text-center py-20">
+            <p className="text-zinc-400 dark:text-zinc-500 text-lg">
+              &ldquo;매물 검색&rdquo; 버튼을 눌러 크롤링을 시작하세요.
+            </p>
+          </div>
+        )}
+
+        {!loading && !error && listings.length === 0 && scrapedAt && (
+          <div className="text-center py-20">
+            <p className="text-zinc-400 dark:text-zinc-500 text-lg">
+              조건에 맞는 매물이 없습니다.
+            </p>
+          </div>
+        )}
+
+        {/* 매물 목록 */}
+        {!loading && listings.length > 0 && (
+          <div className="grid gap-4">
+            {listings.map((listing) => (
+              <div
+                key={listing.id}
+                className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-5 hover:shadow-md transition-shadow"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span
+                        className={`px-2 py-0.5 text-xs font-medium rounded ${
+                          listing.tradeType === "매매"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                            : listing.tradeType === "전세"
+                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                              : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+                        }`}
+                      >
+                        {listing.tradeType}
+                      </span>
+                      <h3 className="font-semibold text-zinc-900 dark:text-zinc-50">
+                        {listing.complexName}
+                      </h3>
+                      {listing.buildingName && (
+                        <span className="text-xs text-zinc-400">
+                          {listing.buildingName}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      {listing.address}
+                    </p>
+                    {listing.description && (
+                      <p className="text-sm text-zinc-400 dark:text-zinc-500 mt-1 line-clamp-1">
+                        {listing.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right sm:min-w-48">
+                    <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
+                      {formatPrice(
+                        listing.price,
+                        listing.rentPrice,
+                        listing.tradeType
+                      )}
+                    </p>
+                    <div className="flex gap-3 text-xs text-zinc-400 mt-1 justify-end">
+                      <span>
+                        전용 {listing.exclusiveArea}m²
+                      </span>
+                      {listing.floor && <span>{listing.floor}층</span>}
+                      {listing.direction && <span>{listing.direction}</span>}
+                    </div>
+                    <p className="text-xs text-zinc-300 dark:text-zinc-600 mt-1">
+                      {listing.confirmedDate} | {listing.realtorName}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );
