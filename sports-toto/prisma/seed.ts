@@ -78,7 +78,6 @@ function mockResultFor(
       sixth: randDigits(1),
     };
   }
-  // PICK_N_OF_M
   const size = poolSize ?? 55;
   const count = pickCount ?? 6;
   const main = randPick(size, count);
@@ -89,16 +88,11 @@ function mockResultFor(
 }
 
 async function main() {
-  console.log("[seed] Clearing existing game data...");
-  await prisma.bet.deleteMany();
-  await prisma.draw.deleteMany();
-  await prisma.prizeTier.deleteMany();
-  await prisma.game.deleteMany();
-
-  console.log("[seed] Inserting games + prize tiers...");
+  console.log("[seed] Upserting games + prize tiers (idempotent)...");
   for (const g of GAMES) {
-    await prisma.game.create({
-      data: {
+    const game = await prisma.game.upsert({
+      where: { slug: g.slug },
+      create: {
         slug: g.slug,
         name: g.name,
         nameKo: g.nameKo,
@@ -109,18 +103,44 @@ async function main() {
         minStakeSen: g.minStakeSen,
         drawSchedule: g.drawSchedule,
         active: true,
-        prizeTiers: {
-          create: g.prizeTiers.map((t) => ({
-            rank: t.rank,
-            label: t.label,
-            payoutSen: t.payoutSen,
-            matchRule: JSON.stringify(t.matchRule),
-            odds: t.odds ?? null,
-          })),
-        },
+      },
+      update: {
+        name: g.name,
+        nameKo: g.nameKo,
+        kind: g.kind,
+        pickCount: g.pickCount,
+        poolSize: g.poolSize,
+        digitCount: g.digitCount,
+        minStakeSen: g.minStakeSen,
+        drawSchedule: g.drawSchedule,
+        active: true,
       },
     });
-    console.log(`  ✓ ${g.slug} (${g.prizeTiers.length} prize tiers)`);
+
+    // Replace prize tiers wholesale so registry changes propagate.
+    await prisma.prizeTier.deleteMany({ where: { gameId: game.id } });
+    await prisma.prizeTier.createMany({
+      data: g.prizeTiers.map((t) => ({
+        gameId: game.id,
+        rank: t.rank,
+        label: t.label,
+        payoutSen: t.payoutSen,
+        matchRule: JSON.stringify(t.matchRule),
+        odds: t.odds ?? null,
+      })),
+    });
+
+    console.log(`  ✓ ${g.slug} (${g.prizeTiers.length} tiers)`);
+  }
+
+  // Seed sample draws only on first run (when no draws exist).
+  const drawCount = await prisma.draw.count();
+  if (drawCount > 0) {
+    console.log(
+      `[seed] Skipping sample draws — ${drawCount} already exist.`,
+    );
+    await prisma.$disconnect();
+    return;
   }
 
   console.log("[seed] Inserting sample draws...");
@@ -129,7 +149,6 @@ async function main() {
   let drawSeq = 1000;
 
   for (const game of games) {
-    // 5 historical SETTLED draws
     for (let i = 5; i >= 1; i--) {
       const scheduledAt = new Date(now - i * 3 * 24 * 60 * 60 * 1000);
       const closesAt = new Date(scheduledAt.getTime() - 60 * 60 * 1000);
@@ -152,7 +171,6 @@ async function main() {
         },
       });
     }
-    // 1 upcoming OPEN draw
     const scheduledAt = new Date(now + 2 * 24 * 60 * 60 * 1000);
     const closesAt = new Date(scheduledAt.getTime() - 60 * 60 * 1000);
     await prisma.draw.create({

@@ -1,17 +1,60 @@
 // Demo Toto MY — SIMULATION ONLY. See README.md for legal notice.
-//
-// NOTE: SQLite does not support Prisma enum types. String fields are used
-// instead, with allowed values defined in lib/games/types.ts. When migrating
-// to Postgres/MySQL, these can be promoted to enums.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// ---------- Enums ----------
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum GameKind {
+  FOUR_D
+  FOUR_D_JACKPOT
+  FIVE_D
+  SIX_D
+  PICK_N_OF_M
+}
+
+enum DrawStatus {
+  OPEN
+  CLOSED
+  SETTLED
+  CANCELLED
+}
+
+enum BetStatus {
+  PLACED
+  WON
+  LOST
+  VOID
+}
+
+enum TxType {
+  DEPOSIT
+  WITHDRAWAL
+  BET_DEBIT
+  BET_CREDIT_WIN
+  REFUND
+  ADJUSTMENT
+}
+
+enum KycStatus {
+  NONE
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+// ---------- Models ----------
 
 model User {
   id               String    @id @default(cuid())
@@ -19,9 +62,9 @@ model User {
   hashedPassword   String?
   name             String?
   dateOfBirth      DateTime?
-  role             String    @default("USER")  // "USER" | "ADMIN"
+  role             Role      @default(USER)
   walletBalanceSen Int       @default(0)
-  kycStatus        String    @default("NONE")  // "NONE" | "PENDING" | "VERIFIED" | "REJECTED"
+  kycStatus        KycStatus @default(NONE)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -37,7 +80,7 @@ model Game {
   slug         String   @unique
   name         String
   nameKo       String?
-  kind         String   // "FOUR_D" | "FOUR_D_JACKPOT" | "FIVE_D" | "SIX_D" | "PICK_N_OF_M"
+  kind         GameKind
   pickCount    Int?
   poolSize     Int?
   digitCount   Int?
@@ -58,7 +101,7 @@ model PrizeTier {
   rank      Int
   label     String
   payoutSen Int
-  matchRule String  // JSON — see lib/games/types.ts
+  matchRule String  // JSON
   odds      String?
 
   game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
@@ -67,18 +110,18 @@ model PrizeTier {
 }
 
 model Draw {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   gameId      String
   drawNumber  String
   scheduledAt DateTime
   closesAt    DateTime
-  status      String    @default("OPEN")  // "OPEN" | "CLOSED" | "SETTLED" | "CANCELLED"
-  results     String?   // JSON — shape varies by game kind
+  status      DrawStatus @default(OPEN)
+  results     String?
   jackpotSen  Int?
   settledAt   DateTime?
   settledBy   String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   game Game  @relation(fields: [gameId], references: [id], onDelete: Cascade)
   bets Bet[]
@@ -93,12 +136,12 @@ model Bet {
   userId         String
   drawId         String
   gameId         String
-  selection      String    // JSON — shape varies by game kind
+  selection      String
   betType        String
   stakeSen       Int
   multiplier     Int       @default(1)
   totalCostSen   Int
-  status         String    @default("PLACED")  // "PLACED" | "WON" | "LOST" | "VOID"
+  status         BetStatus @default(PLACED)
   payoutSen      Int       @default(0)
   settledAt      DateTime?
   idempotencyKey String    @unique
@@ -115,7 +158,7 @@ model Bet {
 model Transaction {
   id                    String   @id @default(cuid())
   userId                String
-  type                  String   // "DEPOSIT" | "WITHDRAWAL" | "BET_DEBIT" | "BET_CREDIT_WIN" | "REFUND" | "ADJUSTMENT"
+  type                  TxType
   amountSen             Int
   balanceAfterSen       Int
   referenceType         String?
@@ -137,7 +180,7 @@ model KycRecord {
   submittedAt  DateTime  @default(now())
   reviewedAt   DateTime?
   reviewedBy   String?
-  status       String    @default("PENDING")
+  status       KycStatus @default(PENDING)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
