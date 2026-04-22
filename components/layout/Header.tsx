@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SlipBadge } from "@/components/betslip/SlipBadge";
 
 const NAV = [
   { href: "/games", label: "게임" },
@@ -29,6 +30,7 @@ export function Header() {
             </Link>
           ))}
         </nav>
+        <SlipBadge />
         <Link
           href="/auth/signin"
           className="hidden sm:inline-flex items-center rounded-md border border-(--border) px-3 py-1.5 text-sm hover:bg-(--muted)"
