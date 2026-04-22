@@ -1,0 +1,191 @@
+// Demo Toto MY — SIMULATION ONLY. See README.md for legal notice.
+//
+// NOTE: SQLite does not support Prisma enum types. String fields are used
+// instead, with allowed values defined in lib/games/types.ts. When migrating
+// to Postgres/MySQL, these can be promoted to enums.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  hashedPassword   String?
+  name             String?
+  dateOfBirth      DateTime?
+  role             String    @default("USER")  // "USER" | "ADMIN"
+  walletBalanceSen Int       @default(0)
+  kycStatus        String    @default("NONE")  // "NONE" | "PENDING" | "VERIFIED" | "REJECTED"
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  bets         Bet[]
+  transactions Transaction[]
+  kyc          KycRecord?
+  accounts     Account[]
+  sessions     Session[]
+}
+
+model Game {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  nameKo       String?
+  kind         String   // "FOUR_D" | "FOUR_D_JACKPOT" | "FIVE_D" | "SIX_D" | "PICK_N_OF_M"
+  pickCount    Int?
+  poolSize     Int?
+  digitCount   Int?
+  minStakeSen  Int      @default(100)
+  drawSchedule String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  prizeTiers PrizeTier[]
+  draws      Draw[]
+  bets       Bet[]
+}
+
+model PrizeTier {
+  id        String  @id @default(cuid())
+  gameId    String
+  rank      Int
+  label     String
+  payoutSen Int
+  matchRule String  // JSON — see lib/games/types.ts
+  odds      String?
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId, rank])
+}
+
+model Draw {
+  id          String    @id @default(cuid())
+  gameId      String
+  drawNumber  String
+  scheduledAt DateTime
+  closesAt    DateTime
+  status      String    @default("OPEN")  // "OPEN" | "CLOSED" | "SETTLED" | "CANCELLED"
+  results     String?   // JSON — shape varies by game kind
+  jackpotSen  Int?
+  settledAt   DateTime?
+  settledBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  game Game  @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  bets Bet[]
+
+  @@unique([gameId, drawNumber])
+  @@index([gameId, scheduledAt])
+  @@index([status])
+}
+
+model Bet {
+  id             String    @id @default(cuid())
+  userId         String
+  drawId         String
+  gameId         String
+  selection      String    // JSON — shape varies by game kind
+  betType        String
+  stakeSen       Int
+  multiplier     Int       @default(1)
+  totalCostSen   Int
+  status         String    @default("PLACED")  // "PLACED" | "WON" | "LOST" | "VOID"
+  payoutSen      Int       @default(0)
+  settledAt      DateTime?
+  idempotencyKey String    @unique
+  createdAt      DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  draw Draw @relation(fields: [drawId], references: [id], onDelete: Cascade)
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([drawId, status])
+}
+
+model Transaction {
+  id                    String   @id @default(cuid())
+  userId                String
+  type                  String   // "DEPOSIT" | "WITHDRAWAL" | "BET_DEBIT" | "BET_CREDIT_WIN" | "REFUND" | "ADJUSTMENT"
+  amountSen             Int
+  balanceAfterSen       Int
+  referenceType         String?
+  referenceId           String?
+  stripePaymentIntentId String?  @unique
+  createdAt             DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model KycRecord {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  idType       String
+  idNumberHash String
+  documentUrl  String?
+  submittedAt  DateTime  @default(now())
+  reviewedAt   DateTime?
+  reviewedBy   String?
+  status       String    @default("PENDING")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Outlet {
+  id      String  @id @default(cuid())
+  name    String
+  address String
+  state   String
+  city    String?
+  lat     Float?
+  lng     Float?
+}
+
+// ---------- NextAuth (prisma-adapter) ----------
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
