@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Separate sub-project; it has its own eslint config.
+    "sports-toto/**",
   ]),
 ]);
 
