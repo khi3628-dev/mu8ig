@@ -4,6 +4,7 @@ import { LegalDisclaimerBanner } from "@/components/layout/LegalDisclaimerBanner
 import { AgeGateModal } from "@/components/layout/AgeGateModal";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "Demo Toto MY — 숫자 예측 게임 시뮬레이터",
@@ -19,11 +20,13 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className="antialiased min-h-screen flex flex-col">
-        <LegalDisclaimerBanner />
-        <Header />
-        <main className="flex-1">{children}</main>
-        <Footer />
-        <AgeGateModal />
+        <Providers>
+          <LegalDisclaimerBanner />
+          <Header />
+          <main className="flex-1">{children}</main>
+          <Footer />
+          <AgeGateModal />
+        </Providers>
       </body>
     </html>
   );

@@ -1,19 +1,37 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useState } from "react";
 import { useBetSlipStore } from "@/state/betSlipStore";
+import { useAccountStore } from "@/state/accountStore";
 import { useHasMounted } from "@/lib/useHasMounted";
 import { senToMyr } from "@/lib/currency";
 import { BetSlipLineRow } from "./BetSlipLine";
 
 export function BetSlip() {
   const mounted = useHasMounted();
+  const router = useRouter();
+  const { status } = useSession();
   const lines = useBetSlipStore((s) => s.lines);
   const removeLine = useBetSlipStore((s) => s.removeLine);
   const clear = useBetSlipStore((s) => s.clear);
 
-  const total = lines.reduce((acc, l) => acc + l.totalCostSen, 0);
+  const balance = useAccountStore((s) => s.walletBalanceSen);
+  const fetchMe = useAccountStore((s) => s.fetchMe);
 
-  // Avoid SSR/hydration mismatch — render nothing until mounted.
+  useEffect(() => {
+    if (status === "authenticated") void fetchMe();
+  }, [status, fetchMe]);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const total = lines.reduce((acc, l) => acc + l.totalCostSen, 0);
+  const insufficient =
+    status === "authenticated" && balance != null && total > balance;
+
   if (!mounted) {
     return (
       <aside className="rounded-lg border border-(--border) p-4">
@@ -23,6 +41,61 @@ export function BetSlip() {
       </aside>
     );
   }
+
+  async function handlePlaceBet() {
+    setError(null);
+    if (status !== "authenticated") {
+      router.push("/auth/signin?callbackUrl=" + encodeURIComponent("/bet-slip"));
+      return;
+    }
+    if (lines.length === 0) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/bets", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          lines: lines.map((l) => ({
+            gameSlug: l.gameSlug,
+            betType: l.betType,
+            selection: l.selection,
+            stakeSen: l.stakeSen,
+            idempotencyKey: l.idempotencyKey,
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data.error === "insufficient_funds") {
+          setError("잔액이 부족합니다. 지갑에서 충전 후 다시 시도해주세요.");
+        } else if (data.error === "no_open_draw") {
+          setError("열려 있는 드로우가 없습니다.");
+        } else if (data.error === "unauthorized") {
+          router.push("/auth/signin");
+        } else {
+          setError("베팅 실패: " + (data.error ?? res.statusText));
+        }
+        return;
+      }
+      clear();
+      await fetchMe();
+      router.push("/account/bets");
+      router.refresh();
+    } catch {
+      setError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const buttonLabel = (() => {
+    if (submitting) return "처리 중...";
+    if (status === "unauthenticated") return "로그인하고 베팅하기";
+    if (status === "loading") return "로그인 상태 확인 중...";
+    if (balance == null) return "잔액 확인 중...";
+    if (insufficient) return "잔액 부족 — 충전 필요";
+    return `베팅하기 (${senToMyr(total)})`;
+  })();
 
   return (
     <aside className="rounded-lg border border-(--border) bg-(--background) flex flex-col">
@@ -64,16 +137,31 @@ export function BetSlip() {
           </span>
           <span className="font-semibold text-lg">{senToMyr(total)}</span>
         </div>
+        {status === "authenticated" && balance != null && (
+          <div className="text-xs text-(--muted-foreground) flex justify-between">
+            <span>지갑 잔액</span>
+            <span
+              className={
+                insufficient ? "text-red-600 dark:text-red-400" : "text-(--foreground)"
+              }
+            >
+              {senToMyr(balance)}
+            </span>
+          </div>
+        )}
         <button
           type="button"
-          onClick={() => alert("실제 베팅은 Phase 4 (로그인/지갑) 이후 활성화됩니다.")}
-          disabled={lines.length === 0}
+          onClick={handlePlaceBet}
+          disabled={submitting || lines.length === 0 || insufficient}
           className="w-full inline-flex items-center justify-center rounded-md bg-(--brand) text-(--brand-foreground) px-4 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          베팅하기 (Phase 4 로그인 필요)
+          {buttonLabel}
         </button>
+        {error && (
+          <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+        )}
         <p className="text-[11px] text-(--muted-foreground) text-center">
-          슬립은 브라우저에 저장됩니다. 실제 베팅은 이루어지지 않습니다.
+          SIMULATION ONLY. 실제 금전 이동 없음.
         </p>
       </footer>
     </aside>
