@@ -1,0 +1,182 @@
+// Baedal — food delivery demo.
+//
+// SQLite is used for dev. Prisma enum types are not supported on SQLite, so
+// string fields with documented allowed values are used instead.
+// OrderStatus allowed values: see lib/orderStatus.ts
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  hashedPassword String
+  name           String?
+  phone          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  addresses Address[]
+  orders    Order[]
+  reviews   Review[]
+}
+
+model Address {
+  id          String  @id @default(cuid())
+  userId      String
+  label       String  // "집", "회사", etc.
+  roadAddress String
+  detail      String?
+  lat         Float
+  lng         Float
+  isDefault   Boolean @default(false)
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([userId])
+}
+
+model Category {
+  id      String @id @default(cuid())
+  slug    String @unique
+  name    String
+  iconKey String
+  sort    Int    @default(0)
+
+  restaurants Restaurant[]
+}
+
+model Restaurant {
+  id                   String   @id @default(cuid())
+  name                 String
+  description          String?
+  categoryId           String
+  roadAddress          String
+  lat                  Float
+  lng                  Float
+  minOrderWon          Int
+  deliveryFeeWon       Int
+  deliveryMinutesMin   Int
+  deliveryMinutesMax   Int
+  ratingAvg            Float    @default(0)
+  reviewCount          Int      @default(0)
+  imageUrl             String?
+  isOpen               Boolean  @default(true)
+  createdAt            DateTime @default(now())
+
+  category   Category    @relation(fields: [categoryId], references: [id])
+  menuGroups MenuGroup[]
+  orders     Order[]
+  reviews    Review[]
+
+  @@index([categoryId])
+  @@index([name])
+}
+
+model MenuGroup {
+  id           String @id @default(cuid())
+  restaurantId String
+  name         String
+  sort         Int    @default(0)
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  items      MenuItem[]
+
+  @@index([restaurantId])
+}
+
+model MenuItem {
+  id          String  @id @default(cuid())
+  menuGroupId String
+  name        String
+  description String?
+  priceWon    Int
+  imageUrl    String?
+  isPopular   Boolean @default(false)
+  isAvailable Boolean @default(true)
+  sort        Int     @default(0)
+
+  group      MenuGroup    @relation(fields: [menuGroupId], references: [id], onDelete: Cascade)
+  options    MenuOption[]
+  orderItems OrderItem[]
+
+  @@index([menuGroupId])
+}
+
+model MenuOption {
+  id            String  @id @default(cuid())
+  menuItemId    String
+  groupName     String  // "맛", "사이즈"
+  name          String  // "보통맛", "Large"
+  extraPriceWon Int     @default(0)
+  isRequired    Boolean @default(false)
+  sort          Int     @default(0)
+
+  item MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@index([menuItemId])
+}
+
+model Order {
+  id                   String    @id @default(cuid())
+  userId               String
+  restaurantId         String
+  addressId            String?
+  addressSnapshot      String    // JSON: { label, roadAddress, detail, lat, lng }
+  subtotalWon          Int
+  deliveryFeeWon       Int
+  totalWon             Int
+  status               String    @default("PENDING") // see lib/orderStatus.ts
+  paymentMethod        String    @default("CARD")    // "CARD" | "CASH" | "PAY"
+  instructions         String?
+  placedAt             DateTime  @default(now())
+  estimatedArrivalAt   DateTime
+  completedAt          DateTime?
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant Restaurant  @relation(fields: [restaurantId], references: [id])
+  address    Address?    @relation(fields: [addressId], references: [id])
+  items      OrderItem[]
+  review     Review?
+
+  @@index([userId, placedAt])
+  @@index([restaurantId])
+}
+
+model OrderItem {
+  id          String @id @default(cuid())
+  orderId     String
+  menuItemId  String
+  name        String // snapshot
+  unitPriceWon Int   // with options
+  quantity    Int
+  optionsJson String // JSON array of { groupName, name, extraPriceWon }
+
+  order Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  item  MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@index([orderId])
+}
+
+model Review {
+  id           String   @id @default(cuid())
+  userId       String
+  restaurantId String
+  orderId      String   @unique
+  rating       Int // 1-5
+  body         String?
+  createdAt    DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, createdAt])
+}
