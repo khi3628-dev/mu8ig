@@ -1,0 +1,119 @@
+[
+  {
+    "id": "meet-01",
+    "kind": "fill-blank",
+    "domain": "meeting",
+    "title": { "ko": "주간 회의 진행", "en": "Running a weekly sync" },
+    "contextKo": "주간 스탠드업 미팅을 진행합니다. 오프닝, 진행, 마무리 표현을 채워보세요.",
+    "turns": [
+      { "speaker": "You", "en": "Thanks for joining today. Let's get started.", "ko": "오늘 참석해 주셔서 감사합니다. 바로 시작할게요." },
+      { "speaker": "You", "en": "The ______ of today's meeting is to align on Q3 priorities.", "ko": "오늘 회의의 목표는 3분기 우선순위 합의입니다." },
+      { "speaker": "Sarah", "en": "Sounds good — should we go around and share updates?", "ko": "좋아요. 돌아가면서 업데이트를 공유할까요?" },
+      { "speaker": "You", "en": "Yes. Let's keep each update to two minutes so we ______ within thirty minutes.", "ko": "네. 각 업데이트를 2분 이내로 해서 30분 안에 마무리하죠." },
+      { "speaker": "You", "en": "That brings me to my next ______ — blockers.", "ko": "그럼 다음 주제, 블로커로 넘어가겠습니다." },
+      { "speaker": "You", "en": "Any blockers I should ______ up to leadership?", "ko": "리더십에 보고할 만한 블로커가 있나요?" }
+    ],
+    "blanks": [
+      { "turnIndex": 1, "answer": "goal", "hintKo": "목표" },
+      { "turnIndex": 3, "answer": "wrap", "hintKo": "마무리하다 (wrap up)" },
+      { "turnIndex": 4, "answer": "point", "hintKo": "요점, 주제" },
+      { "turnIndex": 5, "answer": "escalate", "hintKo": "격상 보고하다" }
+    ]
+  },
+  {
+    "id": "meet-02",
+    "kind": "fill-blank",
+    "domain": "meeting",
+    "title": { "ko": "Q&A 대응", "en": "Handling audience Q&A" },
+    "contextKo": "발표 후 청중 질문에 대응하는 답변을 완성해 보세요.",
+    "turns": [
+      { "speaker": "Audience", "en": "How confident are we in the Q4 forecast?", "ko": "4분기 전망은 얼마나 확실한가요?" },
+      { "speaker": "You", "en": "Great ______ — let me address that directly.", "ko": "좋은 질문입니다. 정면으로 답변드릴게요." },
+      { "speaker": "You", "en": "The short ______ is: cautiously optimistic.", "ko": "짧게 답하면 신중한 낙관입니다." },
+      { "speaker": "You", "en": "I want to ______ the assumption behind that number.", "ko": "그 숫자 뒤의 가정을 짚어두겠습니다." },
+      { "speaker": "Audience", "en": "What about the risk of losing our biggest account?", "ko": "가장 큰 고객사를 잃을 리스크는요?" },
+      { "speaker": "You", "en": "That's a fair ______ — let me take that offline and come back with data.", "ko": "타당한 지적입니다. 회의 밖에서 다루고 데이터와 함께 다시 오겠습니다." }
+    ],
+    "blanks": [
+      { "turnIndex": 1, "answer": "question", "hintKo": "질문" },
+      { "turnIndex": 2, "answer": "answer", "hintKo": "답변" },
+      { "turnIndex": 3, "answer": "flag", "hintKo": "짚다, 표시하다" },
+      { "turnIndex": 5, "answer": "pushback", "hintKo": "반박, 밀어붙임" }
+    ]
+  },
+  {
+    "id": "email-01",
+    "kind": "fill-blank",
+    "domain": "email",
+    "title": { "ko": "미팅 요청 이메일", "en": "Requesting a meeting" },
+    "contextKo": "고객 담당자에게 미팅을 요청하는 이메일 초안입니다.",
+    "turns": [
+      { "speaker": "Subject", "en": "Quick sync on the Q3 renewal", "ko": "3분기 갱신 관련 짧은 미팅" },
+      { "speaker": "You", "en": "Hi Jamie,", "ko": "안녕하세요 Jamie,\n" },
+      { "speaker": "You", "en": "I hope this note finds you ______.", "ko": "잘 지내고 계시길 바랍니다." },
+      { "speaker": "You", "en": "Would you have thirty minutes next week to ______ the renewal terms?", "ko": "다음 주에 갱신 조건을 논의할 30분 시간이 될까요?" },
+      { "speaker": "You", "en": "I'd love to ______ your feedback on our proposal.", "ko": "저희 제안에 대한 피드백을 받고 싶습니다." },
+      { "speaker": "You", "en": "Please let me know a time that ______ for you.", "ko": "편하신 시간을 알려주세요." },
+      { "speaker": "You", "en": "Best,\nAlex", "ko": "감사합니다,\nAlex" }
+    ],
+    "blanks": [
+      { "turnIndex": 2, "answer": "well", "hintKo": "잘 (well)" },
+      { "turnIndex": 3, "answer": "discuss", "hintKo": "논의하다" },
+      { "turnIndex": 4, "answer": "get", "hintKo": "얻다" },
+      { "turnIndex": 5, "answer": "works", "hintKo": "괜찮다, 되다" }
+    ]
+  },
+  {
+    "id": "email-02",
+    "kind": "sentence-order",
+    "domain": "email",
+    "title": { "ko": "지연 안내 이메일 정렬", "en": "Order a delay-notice email" },
+    "contextKo": "지연을 알리는 이메일 문장들을 자연스러운 순서로 정렬하세요.",
+    "turns": [],
+    "scrambled": [
+      "We identified a compatibility issue during final testing.",
+      "Hi team,",
+      "The good news: no data or customer impact — just an extra week of QA.",
+      "I'm writing to let you know the release will slip by one week.",
+      "Please let me know if this creates any blockers on your side.",
+      "The new target is Friday, November 8."
+    ],
+    "correctOrder": [1, 3, 0, 5, 2, 4]
+  },
+  {
+    "id": "nego-01",
+    "kind": "sentence-order",
+    "domain": "negotiation",
+    "title": { "ko": "가격 협상 흐름 정렬", "en": "Order the negotiation flow" },
+    "contextKo": "가격 협상 대화의 문장들을 자연스러운 순서로 배열하세요.",
+    "turns": [],
+    "scrambled": [
+      "Would you have flexibility on the annual commitment?",
+      "Thanks for sending over the proposal — a few thoughts.",
+      "If we extend to 24 months, could we bring the number down by 10%?",
+      "The pricing is a bit above what we budgeted for this year.",
+      "That works on our side. Let me draft the updated terms and send them over."
+    ],
+    "correctOrder": [1, 3, 0, 2, 4]
+  },
+  {
+    "id": "nego-02",
+    "kind": "fill-blank",
+    "domain": "negotiation",
+    "title": { "ko": "협상에서 반박하기", "en": "Pushing back in a negotiation" },
+    "contextKo": "가격 인상에 대해 정중히 반박하는 답변을 완성하세요.",
+    "turns": [
+      { "speaker": "Vendor", "en": "We'll need to raise the price by 12% for the renewal.", "ko": "갱신 시 가격을 12% 인상해야 합니다." },
+      { "speaker": "You", "en": "Thanks for being ______ about the increase.", "ko": "인상 내용을 미리 알려주셔서 감사합니다." },
+      { "speaker": "You", "en": "Let me ______ back gently — 12% is a big step given our usage is flat.", "ko": "조심스럽게 반박드리면, 사용량이 그대로인데 12%는 큰 폭입니다." },
+      { "speaker": "You", "en": "Could we ______ at a smaller increase, say 5%?", "ko": "더 작은 폭, 예를 들어 5% 정도로 맞춰볼 수 있을까요?" },
+      { "speaker": "You", "en": "In return, I can ______ a two-year commitment.", "ko": "그 대신 2년 계약을 제안드릴 수 있습니다." }
+    ],
+    "blanks": [
+      { "turnIndex": 1, "answer": "upfront", "hintKo": "미리, 사전에" },
+      { "turnIndex": 2, "answer": "push", "hintKo": "밀어붙이다" },
+      { "turnIndex": 3, "answer": "land", "hintKo": "안착하다, 정착하다" },
+      { "turnIndex": 4, "answer": "offer", "hintKo": "제안하다" }
+    ]
+  }
+]

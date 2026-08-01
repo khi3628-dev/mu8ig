@@ -1,0 +1,71 @@
+[
+  {
+    "id": "d1",
+    "kind": "word-chain",
+    "titleKo": "끝말잇기 60초 스프린트",
+    "titleEn": "Word Chain 60s sprint",
+    "descriptionKo": "비즈니스 단어로 60초 안에 최대한 이어가기",
+    "descriptionEn": "Chain as many business words as you can in 60s",
+    "rewardPoints": 10
+  },
+  {
+    "id": "d2",
+    "kind": "flashcards",
+    "titleKo": "발표 오프닝 5장",
+    "titleEn": "Review 5 opening cards",
+    "descriptionKo": "회의를 여는 자연스러운 표현 5개 복습",
+    "descriptionEn": "Review 5 natural openings for meetings",
+    "rewardPoints": 10,
+    "payload": { "category": "opening", "count": 5 }
+  },
+  {
+    "id": "d3",
+    "kind": "dialogue",
+    "titleKo": "회의 진행 다이얼로그",
+    "titleEn": "Run-a-meeting dialogue",
+    "descriptionKo": "빈칸 채우기로 회의 진행 표현 익히기",
+    "descriptionEn": "Fill blanks in a run-a-meeting flow",
+    "rewardPoints": 12,
+    "payload": { "scenarioId": "meet-01" }
+  },
+  {
+    "id": "d4",
+    "kind": "voice-style",
+    "titleKo": "내 말투로 임원 보고",
+    "titleEn": "Exec update in your voice",
+    "descriptionKo": "20초 녹음 → 임원 보고용 영문 3개 생성",
+    "descriptionEn": "Record 20s → 3 exec-update variants",
+    "rewardPoints": 15,
+    "payload": { "situationId": "exec-update" }
+  },
+  {
+    "id": "d5",
+    "kind": "flashcards",
+    "titleKo": "Q&A 표현 5장",
+    "titleEn": "Review 5 Q&A cards",
+    "descriptionKo": "발표 후 Q&A 대응 표현 5개",
+    "descriptionEn": "5 expressions for handling audience Q&A",
+    "rewardPoints": 10,
+    "payload": { "category": "qa", "count": 5 }
+  },
+  {
+    "id": "d6",
+    "kind": "dialogue",
+    "titleKo": "협상 다이얼로그",
+    "titleEn": "Negotiation dialogue",
+    "descriptionKo": "가격 협상 시나리오 문장 정렬",
+    "descriptionEn": "Reorder sentences in a price negotiation",
+    "rewardPoints": 12,
+    "payload": { "scenarioId": "nego-01" }
+  },
+  {
+    "id": "d7",
+    "kind": "voice-style",
+    "titleKo": "내 말투로 사과 이메일",
+    "titleEn": "Apology email in your voice",
+    "descriptionKo": "20초 녹음 → 사과 이메일 톤에 맞춘 영문 3개",
+    "descriptionEn": "Record 20s → 3 apology-email variants",
+    "rewardPoints": 15,
+    "payload": { "situationId": "apology-email" }
+  }
+]

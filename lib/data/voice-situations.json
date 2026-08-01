@@ -1,0 +1,98 @@
+[
+  {
+    "id": "meet-update",
+    "ko": "회의 중 주간 업데이트 발언",
+    "en": "Weekly update in a team meeting",
+    "contextKo": "팀 주간 회의에서 내 분야 업데이트를 3~4문장으로 공유해야 하는 상황",
+    "sampleEn": "Quick update from our side on the launch prep — three things.",
+    "domain": "meeting"
+  },
+  {
+    "id": "exec-update",
+    "ko": "임원 대상 보고 오프닝",
+    "en": "Opening line to an exec update",
+    "contextKo": "임원 앞에서 프로젝트 진행 상황을 첫 마디로 어떻게 열지",
+    "sampleEn": "Headline first: we're on track, with one risk to flag.",
+    "domain": "presentation"
+  },
+  {
+    "id": "customer-open",
+    "ko": "고객 미팅 오프닝",
+    "en": "Opening a customer meeting",
+    "contextKo": "고객사와의 미팅을 부드럽지만 목적 있게 여는 상황",
+    "sampleEn": "Thanks for making time — I want to cover three things today.",
+    "domain": "meeting"
+  },
+  {
+    "id": "email-open",
+    "ko": "협업 이메일 오프닝",
+    "en": "Opening a cross-team email",
+    "contextKo": "다른 팀에 요청·안내 메일을 여는 첫 문장",
+    "sampleEn": "Quick note to loop you in on where we've landed.",
+    "domain": "email"
+  },
+  {
+    "id": "email-close",
+    "ko": "이메일 클로징",
+    "en": "Closing an email",
+    "contextKo": "명확한 다음 스텝으로 이메일을 닫는 상황",
+    "sampleEn": "Happy to jump on a quick call if that's easier.",
+    "domain": "email"
+  },
+  {
+    "id": "apology-email",
+    "ko": "사과 이메일",
+    "en": "Apology email",
+    "contextKo": "실수·지연에 대해 진정성 있게 사과하되 프로답게 마무리",
+    "sampleEn": "I want to own the miss and share what we're changing.",
+    "domain": "email"
+  },
+  {
+    "id": "nego-decline",
+    "ko": "협상 중 요구 거절",
+    "en": "Declining an ask in a negotiation",
+    "contextKo": "가격/조건 요구를 관계를 해치지 않게 거절",
+    "sampleEn": "I hear you — that number isn't one we can meet, but here's what I can do.",
+    "domain": "negotiation"
+  },
+  {
+    "id": "nego-concede",
+    "ko": "협상 중 부분 양보",
+    "en": "Making a partial concession",
+    "contextKo": "일부만 양보하며 상대에게 상응하는 것을 요청",
+    "sampleEn": "I can flex on the timeline if you can flex on the scope.",
+    "domain": "negotiation"
+  },
+  {
+    "id": "one-on-one-feedback",
+    "ko": "1:1에서 부드럽게 피드백 주기",
+    "en": "Giving feedback in a 1:1",
+    "contextKo": "팀원에게 개선점을 지적하되 관계를 지키며 말하기",
+    "sampleEn": "One thing I noticed that I want to flag — small but worth naming.",
+    "domain": "one-on-one"
+  },
+  {
+    "id": "present-intro",
+    "ko": "발표 인트로",
+    "en": "Presentation intro",
+    "contextKo": "5~10분 발표의 첫 30초 오프닝",
+    "sampleEn": "Three things today: the problem, what we tried, and where we're headed.",
+    "domain": "presentation"
+  },
+  {
+    "id": "present-qa",
+    "ko": "발표 Q&A 대응",
+    "en": "Handling Q&A",
+    "contextKo": "예상 못 한 질문에도 침착하게 답하는 상황",
+    "sampleEn": "Great question — the short answer is X, and let me give the caveat.",
+    "domain": "presentation"
+  },
+  {
+    "id": "standup-blocker",
+    "ko": "스탠드업에서 블로커 공유",
+    "en": "Sharing a blocker in standup",
+    "contextKo": "짧고 명확하게 블로커와 필요한 도움을 요청",
+    "sampleEn": "Blocker: waiting on approval from legal — need help unblocking today.",
+    "domain": "meeting"
+  }
+]
