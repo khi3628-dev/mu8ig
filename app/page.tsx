@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import type { Listing } from "@/lib/types";
 
 type TradeTypeFilter = "all" | "sell" | "jeonse" | "monthly";
@@ -114,13 +115,21 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans">
       <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-        <div className="max-w-6xl mx-auto px-6 py-6">
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-            서울 강동구 84m² 부동산 매물
-          </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            네이버 부동산 기반 실시간 매물 크롤링
-          </p>
+        <div className="max-w-6xl mx-auto px-6 py-6 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+              서울 강동구 84m² 부동산 매물
+            </h1>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+              네이버 부동산 기반 실시간 매물 크롤링
+            </p>
+          </div>
+          <Link
+            href="/watches"
+            className="shrink-0 px-4 py-2 rounded-full text-sm font-medium border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+          >
+            🔔 관심 단지 알림
+          </Link>
         </div>
       </header>
 

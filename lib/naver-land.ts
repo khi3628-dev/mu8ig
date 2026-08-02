@@ -54,24 +54,46 @@ export async function getComplexes(): Promise<NaverComplex[]> {
   return data.complexList || [];
 }
 
+export type TradeTypeCode = "A1" | "B1" | "B2"; // A1: 매매, B1: 전세, B2: 월세
+
 /**
- * 특정 단지의 매물 목록 조회 (84m² 필터)
+ * 매물 조회 조건. 생략하면 전체 크롤링과 동일한 기본값(84m², 가격 무제한)이 쓰인다.
+ */
+export interface ArticleQuery {
+  areaMin?: number;
+  areaMax?: number;
+  priceMin?: number;
+  priceMax?: number;
+}
+
+const DEFAULT_QUERY: Required<ArticleQuery> = {
+  areaMin: AREA_MIN,
+  areaMax: AREA_MAX,
+  priceMin: 0,
+  priceMax: 900000000,
+};
+
+/**
+ * 특정 단지의 매물 목록 한 페이지 조회
  */
 export async function getArticlesForComplex(
   complexNo: string,
-  tradeType: "A1" | "B1" | "B2" = "A1", // A1: 매매, B1: 전세, B2: 월세
-  page = 1
+  tradeType: TradeTypeCode = "A1",
+  page = 1,
+  query: ArticleQuery = {}
 ): Promise<ComplexArticleResponse> {
+  const { areaMin, areaMax, priceMin, priceMax } = { ...DEFAULT_QUERY, ...query };
+
   const params = new URLSearchParams({
     realEstateType: "APT",
     tradeType,
     tag: "::::::::",
     rentPriceMin: "0",
     rentPriceMax: "900000000",
-    priceMin: "0",
-    priceMax: "900000000",
-    areaMin: AREA_MIN.toString(),
-    areaMax: AREA_MAX.toString(),
+    priceMin: priceMin.toString(),
+    priceMax: priceMax.toString(),
+    areaMin: areaMin.toString(),
+    areaMax: areaMax.toString(),
     showArticle: "false",
     sameAddressGroup: "true",
     type: "list",
@@ -89,6 +111,34 @@ export async function getArticlesForComplex(
     isMoreData: data.isMoreData || false,
     pageSize: data.pageSize || 0,
   };
+}
+
+/**
+ * 특정 단지의 매물을 페이지 끝까지 조회.
+ * 전체 크롤링과 관심 단지 감시가 같이 쓰는 경로다.
+ */
+export async function getAllArticlesForComplex(
+  complexNo: string,
+  tradeType: TradeTypeCode = "A1",
+  query: ArticleQuery = {}
+): Promise<NaverArticle[]> {
+  const articles: NaverArticle[] = [];
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const result = await getArticlesForComplex(
+      complexNo,
+      tradeType,
+      page,
+      query
+    );
+    articles.push(...result.articleList);
+    hasMore = result.isMoreData;
+    page++;
+  }
+
+  return articles;
 }
 
 /**
@@ -118,7 +168,7 @@ function toListingItem(
 
 export type TradeTypeFilter = "all" | "sell" | "jeonse" | "monthly";
 
-const TRADE_TYPE_MAP: Record<TradeTypeFilter, ("A1" | "B1" | "B2")[]> = {
+const TRADE_TYPE_MAP: Record<TradeTypeFilter, TradeTypeCode[]> = {
   all: ["A1", "B1", "B2"],
   sell: ["A1"],
   jeonse: ["B1"],
@@ -145,26 +195,10 @@ export async function scrapeGangdongListings(
       batch.flatMap((complex) =>
         tradeTypes.map(async (tradeType) => {
           try {
-            const result = await getArticlesForComplex(
+            const allArticles = await getAllArticlesForComplex(
               complex.complexNo,
               tradeType
             );
-
-            // 추가 페이지가 있으면 계속 조회
-            let allArticles = [...result.articleList];
-            let page = 2;
-            let hasMore = result.isMoreData;
-
-            while (hasMore) {
-              const nextPage = await getArticlesForComplex(
-                complex.complexNo,
-                tradeType,
-                page
-              );
-              allArticles = [...allArticles, ...nextPage.articleList];
-              hasMore = nextPage.isMoreData;
-              page++;
-            }
 
             return allArticles.map((article) =>
               toListingItem(article, complex)

@@ -1,0 +1,47 @@
+// 관심 단지 알림용 스키마.
+// tradeType 등 열거형은 문자열 컬럼으로 두고 허용값을 주석으로 남긴다.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// 사용자가 등록한 관심 단지 + 매칭 조건
+model Watch {
+  id             String    @id @default(cuid())
+  complexNo      String
+  complexName    String
+  tradeType      String // "A1" 매매 | "B1" 전세 | "B2" 월세
+  areaMinM2      Float? // 전용면적 하한
+  areaMaxM2      Float? // 전용면적 상한
+  maxPriceManwon Int? // 가격 상한 (만원)
+  active         Boolean   @default(true)
+  lastCheckedAt  DateTime?
+  /// 등록 시점 매물을 "본 것"으로 기록 완료한 시각.
+  /// null이면 아직 시딩 전이라, 다음 확인은 알림 없이 시딩으로 처리한다.
+  seededAt       DateTime?
+  createdAt      DateTime  @default(now())
+
+  seen SeenArticle[]
+
+  // 같은 단지/거래유형을 중복 등록하지 않는다
+  @@unique([complexNo, tradeType])
+}
+
+/// 이미 확인한 매물. 여기 없는 articleNo만 "신규"로 보고 알림을 보낸다.
+model SeenArticle {
+  id          String   @id @default(cuid())
+  watchId     String
+  articleNo   String
+  priceManwon Int?
+  notifiedAt  DateTime @default(now())
+
+  watch Watch @relation(fields: [watchId], references: [id], onDelete: Cascade)
+
+  @@unique([watchId, articleNo])
+  @@index([watchId])
+}
