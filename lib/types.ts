@@ -8,6 +8,8 @@ export interface NaverComplex {
   highFloor: number;
   lowFloor: number;
   useApproveYmd: string; // 사용승인일 (YYYYMMDD)
+  latitude?: number | string; // 위도 (목록 API가 문자열로 내려주는 경우가 있음)
+  longitude?: number | string; // 경도
 }
 
 export interface NaverArticle {
@@ -40,8 +42,11 @@ export interface ComplexArticleResponse {
 
 export interface Listing {
   id: string;
+  complexNo: string;
   complexName: string;
   address: string;
+  latitude: number | null;
+  longitude: number | null;
   tradeType: string;
   price: string;
   rentPrice: number;
