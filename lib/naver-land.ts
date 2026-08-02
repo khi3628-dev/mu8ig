@@ -54,6 +54,60 @@ export async function getComplexes(): Promise<NaverComplex[]> {
   return data.complexList || [];
 }
 
+function toCoord(value: number | string | undefined): number | null {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = typeof value === "number" ? value : Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
+ * 목록 API가 좌표를 주지 않는 단지에 한해 상세 API로 위/경도 보강
+ */
+async function fillMissingCoords(
+  complexes: NaverComplex[]
+): Promise<NaverComplex[]> {
+  const missing = complexes.filter(
+    (c) => toCoord(c.latitude) === null || toCoord(c.longitude) === null
+  );
+  if (missing.length === 0) return complexes;
+
+  const resolved = new Map<string, { lat: number; lng: number }>();
+  const BATCH_SIZE = 5;
+
+  for (let i = 0; i < missing.length; i += BATCH_SIZE) {
+    const batch = missing.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(async (complex) => {
+        try {
+          const response = await fetchWithRetry(
+            `${BASE_URL}/complexes/${complex.complexNo}?sameAddressGroup=true`
+          );
+          const data = await response.json();
+          const detail = data.complexDetail || {};
+          const lat = toCoord(detail.latitude);
+          const lng = toCoord(detail.longitude);
+          if (lat !== null && lng !== null) {
+            resolved.set(complex.complexNo, { lat, lng });
+          }
+        } catch {
+          console.error(`Failed to fetch coords for complex ${complex.complexName}`);
+        }
+      })
+    );
+
+    if (i + BATCH_SIZE < missing.length) {
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+
+  return complexes.map((complex) => {
+    const found = resolved.get(complex.complexNo);
+    return found
+      ? { ...complex, latitude: found.lat, longitude: found.lng }
+      : complex;
+  });
+}
+
 /**
  * 특정 단지의 매물 목록 조회 (84m² 필터)
  */
@@ -100,8 +154,11 @@ function toListingItem(
 ): Listing {
   return {
     id: article.articleNo,
+    complexNo: complex.complexNo,
     complexName: complex.complexName,
     address: complex.cortarAddress + " " + (complex.detailAddress || ""),
+    latitude: toCoord(complex.latitude),
+    longitude: toCoord(complex.longitude),
     tradeType: article.tradeTypeName,
     price: article.dealOrWarrantPrc,
     rentPrice: article.rentPrc || 0,
@@ -131,7 +188,7 @@ const TRADE_TYPE_MAP: Record<TradeTypeFilter, ("A1" | "B1" | "B2")[]> = {
 export async function scrapeGangdongListings(
   tradeTypeFilter: TradeTypeFilter = "all"
 ): Promise<Listing[]> {
-  const complexes = await getComplexes();
+  const complexes = await fillMissingCoords(await getComplexes());
   const listings: Listing[] = [];
   const tradeTypes = TRADE_TYPE_MAP[tradeTypeFilter];
 
