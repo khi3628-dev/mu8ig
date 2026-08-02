@@ -2,9 +2,21 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import type { Listing } from "@/lib/types";
 
+// Leaflet은 window에 의존하므로 SSR 비활성화
+const ListingMap = dynamic(() => import("@/components/ListingMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[70vh] min-h-96 w-full rounded-lg border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-sm text-zinc-400">
+      지도를 불러오는 중...
+    </div>
+  ),
+});
+
 type TradeTypeFilter = "all" | "sell" | "jeonse" | "monthly";
+type ViewMode = "list" | "map";
 
 interface ApiResponse {
   region: string;
@@ -38,6 +50,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [tradeType, setTradeType] = useState<TradeTypeFilter>("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [scrapedAt, setScrapedAt] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [vaultPath, setVaultPath] = useState("");
@@ -168,6 +181,25 @@ export default function Home() {
               {total}건
             </span>
           )}
+
+          <div className="sm:ml-auto flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-full">
+            {([
+              ["list", "목록"],
+              ["map", "지도"],
+            ] as [ViewMode, string][]).map(([mode, label]) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  viewMode === mode
+                    ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-50"
+                    : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Obsidian 볼트 설정 & 내보내기 */}
@@ -250,8 +282,13 @@ export default function Home() {
           </div>
         )}
 
+        {/* 지도 뷰 */}
+        {!loading && listings.length > 0 && viewMode === "map" && (
+          <ListingMap listings={listings} />
+        )}
+
         {/* 매물 목록 */}
-        {!loading && listings.length > 0 && (
+        {!loading && listings.length > 0 && viewMode === "list" && (
           <div className="grid gap-4">
             {listings.map((listing) => (
               <div
