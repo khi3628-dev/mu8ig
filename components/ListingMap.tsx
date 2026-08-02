@@ -31,7 +31,10 @@ function escapeHtml(value: string): string {
 }
 
 function pinLabel(group: ComplexGroup): { area: string; price: string } {
-  const area = `${toPyeong(group.representative.exclusiveArea)}평`;
+  // 평형은 관행상 공급면적 기준(84m² 전용 = 34평형). 공급면적이 없을 때만 전용으로 폴백.
+  const areaSource =
+    group.representative.supplyArea || group.representative.exclusiveArea;
+  const area = `${toPyeong(areaSource)}평`;
   const price =
     group.representativePriceManwon !== null
       ? formatManwonShort(group.representativePriceManwon)
@@ -157,7 +160,7 @@ export default function ListingMap({
         className="h-[70vh] min-h-96 w-full rounded-lg border border-zinc-200 dark:border-zinc-800 z-0"
       />
 
-      <div className="absolute top-3 left-3 z-[500] bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-full px-4 py-2 text-xs text-zinc-600 dark:text-zinc-300 shadow-sm">
+      <div className="absolute top-3 right-3 z-[500] bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-full px-4 py-2 text-xs text-zinc-600 dark:text-zinc-300 shadow-sm">
         단지 {groups.length}곳 · 매물 {listings.length}건
         {unmappable > 0 && (
           <span className="text-zinc-400"> · 좌표 없음 {unmappable}건</span>
