@@ -1,0 +1,72 @@
+name: DB 마이그레이션 적용
+
+# 수동 실행 전용.
+#
+# 마이그레이션은 스키마를 실제로 바꾸는 작업이라 push마다 자동으로 돌리지 않는다.
+# 새 마이그레이션을 머지한 뒤 Actions 탭에서 직접 실행한다.
+#
+# 필요한 secrets (Settings > Secrets and variables > Actions):
+#   DIRECT_URL   — Neon direct 연결 문자열 (호스트에 "-pooler"가 없는 쪽).
+#                  마이그레이션은 PgBouncer 풀링 위에서 정상 동작하지 않는다.
+#   DATABASE_URL — pooled 연결 문자열. 실제 마이그레이션에는 쓰이지 않지만
+#                  Prisma가 스키마를 읽을 때 datasource의 두 env를 모두 해석한다.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "적용하지 않고 미적용 마이그레이션만 확인"
+        type: boolean
+        default: true
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: 시크릿 확인
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: |
+          missing=""
+          [ -z "$DATABASE_URL" ] && missing="$missing DATABASE_URL"
+          [ -z "$DIRECT_URL" ] && missing="$missing DIRECT_URL"
+          if [ -n "$missing" ]; then
+            echo "다음 secrets가 설정되지 않았습니다:$missing" >&2
+            exit 1
+          fi
+
+      # postinstall이 prisma generate를 실행한다
+      - run: npm ci
+
+      - name: 미적용 마이그레이션 확인
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        # 아직 아무것도 적용되지 않은 DB에서는 status가 비0으로 끝나므로
+        # 여기서 실패시키지 않는다. 실제 판단은 다음 단계의 deploy가 한다.
+        run: npx prisma migrate status || true
+
+      - name: 마이그레이션 적용
+        if: ${{ !inputs.dry_run }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npx prisma migrate deploy
+
+      - name: 적용 후 상태
+        if: ${{ !inputs.dry_run }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npx prisma migrate status
+
+      - name: dry run 안내
+        if: ${{ inputs.dry_run }}
+        run: echo "dry_run=true 였으므로 적용하지 않았습니다. 실제로 적용하려면 dry_run 체크를 해제하고 다시 실행하세요."
