@@ -1,0 +1,104 @@
+// SQLite MVP. Enums are represented as string columns with allowed values
+// documented alongside each field — promote to real enums on Postgres.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String?
+  hashedPassword String?
+  plan           String    @default("FREE") // "FREE" | "PREMIUM"
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  preference Preference?
+  briefings  Briefing[]
+  clicks     DealClick[]
+}
+
+model Preference {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  topics        String   // JSON array of topic slugs, e.g. ["it-tech","kr-econ"]
+  tickers       String   @default("[]") // JSON array of ticker symbols (Phase 2)
+  region        String   @default("서울") // for weather (Phase 2)
+  commuteStart  String   @default("08:00") // HH:mm — morning slot trigger
+  commuteEnd    String   @default("18:30") // HH:mm — evening slot trigger
+  audioEnabled  Boolean  @default(true)
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Briefing {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime // day (00:00 KST)
+  slot      String   // "AM" | "PM"
+  sections  String   // JSON: [{topic,title,summary,sourceUrl,source}]
+  audioUrl  String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date, slot])
+  @@index([date])
+}
+
+model NewsItem {
+  id          String   @id @default(cuid())
+  topic       String
+  title       String
+  url         String   @unique
+  source      String
+  publishedAt DateTime
+  snippet     String
+  fetchedAt   DateTime @default(now())
+
+  @@index([topic, publishedAt])
+}
+
+model Deal {
+  id            String   @id @default(cuid())
+  title         String
+  category      String   // "기프티콘" | "카드" | "편의점" | "앱테크"
+  description   String
+  discountLabel String   // e.g. "12% 할인"
+  affiliateUrl  String
+  imageUrl      String?
+  validFrom     DateTime @default(now())
+  validTo       DateTime
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  clicks DealClick[]
+
+  @@index([active, validTo])
+}
+
+model DealClick {
+  id        String   @id @default(cuid())
+  dealId    String
+  userId    String?
+  clickedAt DateTime @default(now())
+
+  deal Deal  @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([dealId, clickedAt])
+}
+
+model Topic {
+  slug        String @id
+  label       String
+  naverQuery  String // Naver news search query for this topic
+  description String
+}
