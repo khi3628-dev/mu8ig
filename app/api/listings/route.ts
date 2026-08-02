@@ -36,9 +36,14 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Scraping failed:", error);
+
+    // 상류 실패 원인을 그대로 내려준다 (자격증명은 포함되지 않는다).
+    // 감추면 배포 환경에서 네이버 차단인지 다른 문제인지 구분할 수 없다.
+    const detail = error instanceof Error ? error.message : String(error);
+
     return NextResponse.json(
-      { error: "Failed to scrape listings. Please try again later." },
-      { status: 500 }
+      { error: `매물을 가져오지 못했습니다. (${detail})` },
+      { status: 502 }
     );
   }
 }
