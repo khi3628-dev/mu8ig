@@ -5,10 +5,16 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// 환경변수 이름은 Vercel의 Neon 연동이 자동으로 주입하는 것을 그대로 쓴다.
+// 값을 복사해 별도 이름으로 두면, Neon이 자격증명을 회전시켰을 때 연동이
+// 관리하는 변수만 갱신되고 복사본은 옛날 값으로 남아 조용히 깨진다.
+//
+//   POSTGRES_PRISMA_URL      pooled + pgbouncer 파라미터. 런타임 쿼리용.
+//   POSTGRES_URL_NON_POOLING direct. 마이그레이션은 풀링 위에서 동작하지 않는다.
 datasource db {
-  provider = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
 /// 사용자가 등록한 관심 단지 + 매칭 조건

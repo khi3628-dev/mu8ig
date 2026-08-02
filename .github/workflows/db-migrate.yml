@@ -6,10 +6,13 @@ name: DB 마이그레이션 적용
 # 새 마이그레이션을 머지한 뒤 Actions 탭에서 직접 실행한다.
 #
 # 필요한 secrets (Settings > Secrets and variables > Actions):
-#   DIRECT_URL   — Neon direct 연결 문자열 (호스트에 "-pooler"가 없는 쪽).
-#                  마이그레이션은 PgBouncer 풀링 위에서 정상 동작하지 않는다.
-#   DATABASE_URL — pooled 연결 문자열. 실제 마이그레이션에는 쓰이지 않지만
+#   POSTGRES_URL_NON_POOLING — direct 연결 문자열 (호스트에 "-pooler"가 없는 쪽).
+#                  마이그레이션이 실제로 쓰는 값. 풀링 위에서는 동작하지 않는다.
+#   POSTGRES_PRISMA_URL — pooled 연결 문자열. 마이그레이션에 쓰이진 않지만
 #                  Prisma가 스키마를 읽을 때 datasource의 두 env를 모두 해석한다.
+#
+# 이름은 Vercel의 Neon 연동이 주입하는 것과 같다. Vercel 환경변수 화면에서
+# 값을 확인해 같은 이름으로 등록하면 된다.
 on:
   workflow_dispatch:
     inputs:
@@ -31,12 +34,12 @@ jobs:
 
       - name: 시크릿 확인
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          POSTGRES_PRISMA_URL: ${{ secrets.POSTGRES_PRISMA_URL }}
+          POSTGRES_URL_NON_POOLING: ${{ secrets.POSTGRES_URL_NON_POOLING }}
         run: |
           missing=""
-          [ -z "$DATABASE_URL" ] && missing="$missing DATABASE_URL"
-          [ -z "$DIRECT_URL" ] && missing="$missing DIRECT_URL"
+          [ -z "$POSTGRES_PRISMA_URL" ] && missing="$missing POSTGRES_PRISMA_URL"
+          [ -z "$POSTGRES_URL_NON_POOLING" ] && missing="$missing POSTGRES_URL_NON_POOLING"
           if [ -n "$missing" ]; then
             echo "다음 secrets가 설정되지 않았습니다:$missing" >&2
             exit 1
@@ -47,8 +50,8 @@ jobs:
 
       - name: 미적용 마이그레이션 확인
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          POSTGRES_PRISMA_URL: ${{ secrets.POSTGRES_PRISMA_URL }}
+          POSTGRES_URL_NON_POOLING: ${{ secrets.POSTGRES_URL_NON_POOLING }}
         # 아직 아무것도 적용되지 않은 DB에서는 status가 비0으로 끝나므로
         # 여기서 실패시키지 않는다. 실제 판단은 다음 단계의 deploy가 한다.
         run: npx prisma migrate status || true
@@ -56,15 +59,15 @@ jobs:
       - name: 마이그레이션 적용
         if: ${{ !inputs.dry_run }}
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          POSTGRES_PRISMA_URL: ${{ secrets.POSTGRES_PRISMA_URL }}
+          POSTGRES_URL_NON_POOLING: ${{ secrets.POSTGRES_URL_NON_POOLING }}
         run: npx prisma migrate deploy
 
       - name: 적용 후 상태
         if: ${{ !inputs.dry_run }}
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          POSTGRES_PRISMA_URL: ${{ secrets.POSTGRES_PRISMA_URL }}
+          POSTGRES_URL_NON_POOLING: ${{ secrets.POSTGRES_URL_NON_POOLING }}
         run: npx prisma migrate status
 
       - name: dry run 안내
