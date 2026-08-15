@@ -34,6 +34,28 @@ function focusOf(dayType: string): string {
   return PROGRAM[dayType as DayType]?.focus ?? "";
 }
 
+/** 같은 dayType이 로테이션상 다시 돌아와도 지난 회차 체크가 섞이지 않도록 날짜까지 키에 포함한다. */
+function checkedStorageKey(dayType: string): string {
+  const d = new Date();
+  return `workout-checked-${dayType}-${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-3.5 w-3.5 text-white"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={3}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
 function formatRelative(iso: string): string {
   const date = new Date(iso);
   const now = new Date();
@@ -57,6 +79,7 @@ export default function WorkoutPage() {
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
 
   const load = async () => {
     try {
@@ -79,6 +102,30 @@ export default function WorkoutPage() {
     load();
   }, []);
 
+  // 오늘의 세션이 바뀔 때마다 그날 체크해둔 항목을 로컬에서 불러온다.
+  useEffect(() => {
+    if (!next) return;
+    const saved = localStorage.getItem(checkedStorageKey(next.dayType));
+    setChecked(saved ? new Set(JSON.parse(saved) as string[]) : new Set());
+  }, [next]);
+
+  const toggleChecked = (name: string) => {
+    if (!next) return;
+    setChecked((prev) => {
+      const updated = new Set(prev);
+      if (updated.has(name)) {
+        updated.delete(name);
+      } else {
+        updated.add(name);
+      }
+      localStorage.setItem(
+        checkedStorageKey(next.dayType),
+        JSON.stringify([...updated])
+      );
+      return updated;
+    });
+  };
+
   const handleComplete = async () => {
     if (!next) return;
     setCompleting(true);
@@ -92,6 +139,7 @@ export default function WorkoutPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "기록에 실패했습니다.");
+      localStorage.removeItem(checkedStorageKey(next.dayType));
       setNotice(`${next.label} 완료로 기록했습니다.`);
       await load();
     } catch (err) {
@@ -181,35 +229,68 @@ export default function WorkoutPage() {
 
         {!loading && next && (
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm shadow-zinc-200/50 dark:shadow-none p-5 mb-6 -mt-8 relative">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-400 mb-3">
-              오늘의 운동
-            </h2>
-            <ul className="grid gap-3">
-              {next.exercises.map((exercise) => (
-                <li
-                  key={exercise.name}
-                  className="flex items-center justify-between gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-3 last:border-0 last:pb-0"
-                >
-                  <span className="text-zinc-900 dark:text-zinc-100 font-medium">
-                    {exercise.name}
-                    {exercise.note && (
-                      <span className="block text-zinc-400 text-xs font-normal mt-0.5">
-                        {exercise.note}
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                오늘의 운동
+              </h2>
+              <span className="text-xs font-medium text-zinc-400 tabular-nums">
+                {checked.size}/{next.exercises.length}개 완료
+              </span>
+            </div>
+            <ul className="grid gap-1">
+              {next.exercises.map((exercise) => {
+                const isChecked = checked.has(exercise.name);
+                return (
+                  <li
+                    key={exercise.name}
+                    className="border-b border-zinc-100 dark:border-zinc-800 last:border-0"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleChecked(exercise.name)}
+                      className="w-full flex items-center gap-3 py-3 text-left group"
+                    >
+                      <span
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-150 group-active:scale-90 ${
+                          isChecked
+                            ? `${FOCUS_DOT[next.focus]} border-transparent`
+                            : "border-zinc-300 dark:border-zinc-600 group-hover:border-zinc-400 dark:group-hover:border-zinc-500"
+                        }`}
+                      >
+                        {isChecked && <CheckIcon />}
                       </span>
-                    )}
-                  </span>
-                  <span className="text-right shrink-0">
-                    {exercise.weightKg && (
-                      <span className="block text-lg font-bold text-zinc-900 dark:text-zinc-50 tabular-nums">
-                        {exercise.weightKg}kg
+
+                      <span
+                        className={`flex-1 min-w-0 font-medium transition-colors ${
+                          isChecked
+                            ? "text-zinc-400 dark:text-zinc-600 line-through"
+                            : "text-zinc-900 dark:text-zinc-100"
+                        }`}
+                      >
+                        {exercise.name}
+                        {exercise.note && (
+                          <span className="block text-zinc-400 text-xs font-normal mt-0.5 no-underline">
+                            {exercise.note}
+                          </span>
+                        )}
                       </span>
-                    )}
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
-                      {exercise.sets}세트 x {exercise.reps}회
-                    </span>
-                  </span>
-                </li>
-              ))}
+
+                      <span
+                        className={`text-right shrink-0 transition-opacity ${isChecked ? "opacity-40" : ""}`}
+                      >
+                        {exercise.weightKg && (
+                          <span className="block text-lg font-bold text-zinc-900 dark:text-zinc-50 tabular-nums">
+                            {exercise.weightKg}kg
+                          </span>
+                        )}
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+                          {exercise.sets}세트 x {exercise.reps}회
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
