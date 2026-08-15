@@ -2,14 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-
-interface Exercise {
-  name: string;
-  sets: number;
-  reps: string;
-  weightKg?: number;
-  note?: string;
-}
+import { ROTATION, PROGRAM, type DayType, type Exercise } from "@/lib/workout/program";
 
 interface DaySpec {
   dayType: string;
@@ -25,11 +18,36 @@ interface WorkoutSession {
   note: string | null;
 }
 
-const FOCUS_COLORS: Record<string, string> = {
-  금비대: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  파워: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-  스트랭스: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+const FOCUS_GRADIENT: Record<string, string> = {
+  금비대: "from-blue-500 to-indigo-600",
+  파워: "from-orange-500 to-amber-600",
+  스트랭스: "from-rose-500 to-red-600",
 };
+
+const FOCUS_DOT: Record<string, string> = {
+  금비대: "bg-blue-500",
+  파워: "bg-orange-500",
+  스트랭스: "bg-rose-500",
+};
+
+function focusOf(dayType: string): string {
+  return PROGRAM[dayType as DayType]?.focus ?? "";
+}
+
+function formatRelative(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffDays = Math.round(
+    (startOfDay(now).getTime() - startOfDay(date).getTime()) / 86_400_000
+  );
+  const time = date.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" });
+
+  if (diffDays === 0) return `오늘 ${time}`;
+  if (diffDays === 1) return `어제 ${time}`;
+  if (diffDays > 1 && diffDays < 7) return `${diffDays}일 전`;
+  return date.toLocaleDateString("ko-KR", { month: "long", day: "numeric" });
+}
 
 export default function WorkoutPage() {
   const [next, setNext] = useState<DaySpec | null>(null);
@@ -88,33 +106,67 @@ export default function WorkoutPage() {
     await load();
   };
 
+  const gradient = next ? FOCUS_GRADIENT[next.focus] : "from-zinc-700 to-zinc-900";
+  const currentStep = completedCount % ROTATION.length;
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans">
-      <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-        <div className="max-w-3xl mx-auto px-6 py-6">
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-            근비대 DUP 프로그램
-          </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            금비대 → 파워 → 스트랭스 순으로 순환하는 6세션 로테이션
-          </p>
+      <header className={`bg-gradient-to-br ${gradient} text-white`}>
+        <div className="max-w-2xl mx-auto px-6 pt-[max(2rem,env(safe-area-inset-top))] pb-8">
           <Link
             href="/"
-            className="inline-block mt-3 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+            className="inline-flex items-center gap-1 text-sm text-white/75 hover:text-white transition-colors"
           >
             ← 홈으로
           </Link>
+
+          <p className="text-sm font-medium text-white/75 mt-4">
+            근비대 DUP 프로그램
+          </p>
+          <h1 className="text-3xl font-bold mt-1 leading-tight">
+            {next ? next.label.split(" · ")[0] : "불러오는 중..."}
+          </h1>
+          {next && (
+            <p className="text-sm text-white/85 mt-2">
+              {next.focus} 세션 · 지금까지 {completedCount}회 완료
+            </p>
+          )}
+
+          <div className="flex gap-1.5 mt-6">
+            {ROTATION.map((dayType, i) => {
+              const done = i < currentStep;
+              const active = i === currentStep;
+              return (
+                <div
+                  key={dayType}
+                  className={`flex-1 h-1.5 rounded-full transition-colors ${
+                    done
+                      ? "bg-white"
+                      : active
+                        ? "bg-white/90"
+                        : "bg-white/25"
+                  }`}
+                  title={`${dayType} · ${PROGRAM[dayType].focus}`}
+                />
+              );
+            })}
+          </div>
+          <div className="flex justify-between mt-1.5 text-[11px] text-white/60">
+            {ROTATION.map((dayType) => (
+              <span key={dayType}>{dayType}</span>
+            ))}
+          </div>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 py-8">
+      <main className="max-w-2xl mx-auto px-6 py-6 pb-32">
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 mb-5">
             <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
           </div>
         )}
         {notice && (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-6">
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-4 mb-5">
             <p className="text-green-700 dark:text-green-400 text-sm">
               {notice}
             </p>
@@ -128,52 +180,33 @@ export default function WorkoutPage() {
         )}
 
         {!loading && next && (
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-5 mb-8">
-            <div className="flex items-center justify-between gap-4 mb-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span
-                    className={`px-2 py-0.5 text-xs font-medium rounded ${
-                      FOCUS_COLORS[next.focus] ??
-                      "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
-                    }`}
-                  >
-                    {next.focus}
-                  </span>
-                  <span className="text-xs text-zinc-400">
-                    {next.dayType} · 지금까지 {completedCount}세션 완료
-                  </span>
-                </div>
-                <h2 className="font-semibold text-lg text-zinc-900 dark:text-zinc-50">
-                  오늘: {next.label}
-                </h2>
-              </div>
-              <button
-                onClick={handleComplete}
-                disabled={completing}
-                className="shrink-0 px-6 py-2 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {completing ? "기록 중..." : "오늘 운동 완료"}
-              </button>
-            </div>
-
-            <ul className="grid gap-2">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm shadow-zinc-200/50 dark:shadow-none p-5 mb-6 -mt-8 relative">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-400 mb-3">
+              오늘의 운동
+            </h2>
+            <ul className="grid gap-3">
               {next.exercises.map((exercise) => (
                 <li
                   key={exercise.name}
-                  className="flex items-center justify-between gap-3 text-sm border-t border-zinc-100 dark:border-zinc-800 pt-2 first:border-t-0 first:pt-0"
+                  className="flex items-center justify-between gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-3 last:border-0 last:pb-0"
                 >
-                  <span className="text-zinc-900 dark:text-zinc-100">
+                  <span className="text-zinc-900 dark:text-zinc-100 font-medium">
                     {exercise.name}
                     {exercise.note && (
-                      <span className="text-zinc-400 text-xs ml-2">
+                      <span className="block text-zinc-400 text-xs font-normal mt-0.5">
                         {exercise.note}
                       </span>
                     )}
                   </span>
-                  <span className="text-zinc-500 dark:text-zinc-400 shrink-0">
-                    {exercise.weightKg ? `${exercise.weightKg}kg · ` : ""}
-                    {exercise.sets}x{exercise.reps}
+                  <span className="text-right shrink-0">
+                    {exercise.weightKg && (
+                      <span className="block text-lg font-bold text-zinc-900 dark:text-zinc-50 tabular-nums">
+                        {exercise.weightKg}kg
+                      </span>
+                    )}
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+                      {exercise.sets}세트 x {exercise.reps}회
+                    </span>
                   </span>
                 </li>
               ))}
@@ -193,19 +226,26 @@ export default function WorkoutPage() {
             {history.map((session) => (
               <li
                 key={session.id}
-                className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-4 py-3 flex items-center justify-between gap-4"
+                className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 flex items-center justify-between gap-4"
               >
-                <div>
-                  <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                    {session.dayType}
-                  </span>
-                  <span className="text-xs text-zinc-400 ml-2">
-                    {new Date(session.completedAt).toLocaleString("ko-KR")}
-                  </span>
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      FOCUS_DOT[focusOf(session.dayType)] ?? "bg-zinc-400"
+                    }`}
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                      {session.dayType}
+                    </span>
+                    <span className="text-xs text-zinc-400 ml-2">
+                      {formatRelative(session.completedAt)}
+                    </span>
+                  </div>
                 </div>
                 <button
                   onClick={() => handleUndo(session)}
-                  className="px-3 py-1.5 text-xs rounded-full text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  className="px-3 py-1.5 text-xs rounded-full text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shrink-0"
                 >
                   취소
                 </button>
@@ -214,6 +254,20 @@ export default function WorkoutPage() {
           </ul>
         )}
       </main>
+
+      {!loading && next && (
+        <div className="fixed bottom-0 inset-x-0 bg-white/85 dark:bg-zinc-900/85 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="max-w-2xl mx-auto">
+            <button
+              onClick={handleComplete}
+              disabled={completing}
+              className={`w-full py-3.5 rounded-full text-white text-base font-semibold bg-gradient-to-br ${gradient} hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity shadow-md`}
+            >
+              {completing ? "기록 중..." : "오늘 운동 완료"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
