@@ -18,6 +18,13 @@ interface WorkoutSession {
   note: string | null;
 }
 
+interface CalendarEntry {
+  dayType: string;
+  completedAt: string;
+}
+
+const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
+
 const FOCUS_GRADIENT: Record<string, string> = {
   금비대: "from-blue-500 to-indigo-600",
   파워: "from-orange-500 to-amber-600",
@@ -37,7 +44,30 @@ function focusOf(dayType: string): string {
 /** 같은 dayType이 로테이션상 다시 돌아와도 지난 회차 체크가 섞이지 않도록 날짜까지 키에 포함한다. */
 function checkedStorageKey(dayType: string): string {
   const d = new Date();
-  return `workout-checked-${dayType}-${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+  return `workout-checked-${dayType}-${dateKey(d)}`;
+}
+
+/** 로컬 타임존 기준 YYYY-M-D 키. 자정 근처 UTC 저장값도 사용자 기준 날짜로 묶인다. */
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+/** 이번 달 1일이 무슨 요일인지부터 시작해 말일까지 채운, 캘린더 그리드용 셀 배열. null은 빈 칸. */
+function buildMonthCells(year: number, month: number): (number | null)[] {
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: (number | null)[] = Array(firstWeekday).fill(null);
+  for (let day = 1; day <= daysInMonth; day++) cells.push(day);
+  return cells;
+}
+
+function CalendarIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2}>
+      <rect x="3" y="5" width="18" height="16" rx="3" />
+      <path d="M3 10h18M8 3v4M16 3v4" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 function CheckIcon() {
@@ -74,12 +104,15 @@ function formatRelative(iso: string): string {
 export default function WorkoutPage() {
   const [next, setNext] = useState<DaySpec | null>(null);
   const [completedCount, setCompletedCount] = useState(0);
+  const [cyclesCompleted, setCyclesCompleted] = useState(0);
   const [history, setHistory] = useState<WorkoutSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [calendar, setCalendar] = useState<CalendarEntry[]>([]);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const load = async () => {
     try {
@@ -88,7 +121,9 @@ export default function WorkoutPage() {
       if (!response.ok) throw new Error(data.error);
       setNext(data.next);
       setCompletedCount(data.completedCount);
+      setCyclesCompleted(data.cyclesCompleted ?? 0);
       setHistory(data.history ?? []);
+      setCalendar(data.calendar ?? []);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "오늘의 운동을 불러오지 못했습니다."
@@ -157,16 +192,79 @@ export default function WorkoutPage() {
   const gradient = next ? FOCUS_GRADIENT[next.focus] : "from-zinc-700 to-zinc-900";
   const currentStep = completedCount % ROTATION.length;
 
+  const today = new Date();
+  const calendarByDate = new Map(
+    calendar.map((entry) => [dateKey(new Date(entry.completedAt)), entry])
+  );
+  const monthCells = buildMonthCells(today.getFullYear(), today.getMonth());
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans">
       <header className={`bg-gradient-to-br ${gradient} text-white`}>
-        <div className="max-w-2xl mx-auto px-6 pt-[max(2rem,env(safe-area-inset-top))] pb-8">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1 text-sm text-white/75 hover:text-white transition-colors"
-          >
-            ← 홈으로
-          </Link>
+        <div className="max-w-2xl mx-auto px-6 pt-[max(2rem,env(safe-area-inset-top))] pb-8 relative">
+          <div className="flex items-center justify-between">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1 text-sm text-white/75 hover:text-white transition-colors"
+            >
+              ← 홈으로
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setCalendarOpen((v) => !v)}
+              aria-label="달력 보기"
+              className={`p-1.5 rounded-full text-white/85 hover:text-white hover:bg-white/10 transition-colors ${calendarOpen ? "bg-white/15" : ""}`}
+            >
+              <CalendarIcon />
+            </button>
+          </div>
+
+          {calendarOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setCalendarOpen(false)}
+              />
+              <div className="absolute right-6 top-14 z-50 w-72 rounded-2xl bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-50 shadow-xl p-4">
+                <p className="text-sm font-semibold mb-3">
+                  {today.getFullYear()}년 {today.getMonth() + 1}월
+                </p>
+                <div className="grid grid-cols-7 gap-y-1.5 text-center">
+                  {WEEKDAY_LABELS.map((label) => (
+                    <span key={label} className="text-[11px] text-zinc-400">
+                      {label}
+                    </span>
+                  ))}
+                  {monthCells.map((day, i) => {
+                    if (day === null) return <span key={`pad-${i}`} />;
+                    const entry = calendarByDate.get(
+                      dateKey(new Date(today.getFullYear(), today.getMonth(), day))
+                    );
+                    const isToday = day === today.getDate();
+                    return (
+                      <div key={day} className="flex flex-col items-center gap-0.5 py-0.5">
+                        <span
+                          className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${
+                            isToday
+                              ? "ring-2 ring-zinc-900 dark:ring-zinc-50 font-semibold"
+                              : "text-zinc-600 dark:text-zinc-400"
+                          }`}
+                        >
+                          {day}
+                        </span>
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            entry ? FOCUS_DOT[focusOf(entry.dayType)] ?? "bg-zinc-400" : ""
+                          }`}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
 
           <p className="text-sm font-medium text-white/75 mt-4">
             근비대 DUP 프로그램
@@ -175,9 +273,14 @@ export default function WorkoutPage() {
             {next ? next.label.split(" · ")[0] : "불러오는 중..."}
           </h1>
           {next && (
-            <p className="text-sm text-white/85 mt-2">
-              {next.focus} 세션 · 지금까지 {completedCount}회 완료
-            </p>
+            <>
+              <p className="text-sm text-white/85 mt-2">
+                {next.focus} 세션 · 지금까지 {completedCount}회 완료
+              </p>
+              <p className="text-xs text-white/60 mt-1">
+                {cyclesCompleted}바퀴 완주 · 로테이션 한 바퀴(6세션)마다 중량 2.5%씩 자동 증량
+              </p>
+            </>
           )}
 
           <div className="flex gap-1.5 mt-6">

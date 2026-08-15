@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { PROGRAM, nextDayType } from "@/lib/workout/program";
+import { buildProgram, nextDayType, cyclesCompletedFor } from "@/lib/workout/program";
 import { sendTelegram, formatWorkoutReminderMessage } from "@/lib/notify/telegram";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   }
 
   const completedCount = await prisma.workoutSession.count();
-  const next = PROGRAM[nextDayType(completedCount)];
+  const next = buildProgram(cyclesCompletedFor(completedCount))[nextDayType(completedCount)];
 
   const result = await sendTelegram(formatWorkoutReminderMessage(next));
 
