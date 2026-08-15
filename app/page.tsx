@@ -137,12 +137,20 @@ export default function Home() {
               네이버 부동산 기반 실시간 매물 크롤링
             </p>
           </div>
-          <Link
-            href="/watches"
-            className="shrink-0 px-4 py-2 rounded-full text-sm font-medium border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-          >
-            🔔 관심 단지 알림
-          </Link>
+          <div className="flex gap-2 shrink-0">
+            <Link
+              href="/watches"
+              className="px-4 py-2 rounded-full text-sm font-medium border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              🔔 관심 단지 알림
+            </Link>
+            <Link
+              href="/workout"
+              className="px-4 py-2 rounded-full text-sm font-medium border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              🏋️ 운동 프로그램
+            </Link>
+          </div>
         </div>
       </header>
 

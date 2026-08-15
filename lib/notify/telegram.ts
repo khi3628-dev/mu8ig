@@ -88,3 +88,24 @@ export function formatNewListingMessage(item: NewListingMessage): string {
 
   return lines.join("\n");
 }
+
+export interface WorkoutReminderMessage {
+  label: string;
+  focus: string;
+  exercises: { name: string; sets: number; reps: string; weightKg?: number }[];
+}
+
+/** 오늘의 운동 알림 문구 */
+export function formatWorkoutReminderMessage(item: WorkoutReminderMessage): string {
+  const lines = [
+    `🏋️ 오늘의 운동 — <b>${escapeHtml(item.label)}</b> (${escapeHtml(item.focus)})`,
+    ...item.exercises.map((exercise) => {
+      const weight = exercise.weightKg ? ` ${exercise.weightKg}kg` : "";
+      return `· ${escapeHtml(exercise.name)}${weight} ${exercise.sets}x${exercise.reps}`;
+    }),
+    "",
+    "끝나면 앱에서 완료 체크해주세요.",
+  ];
+
+  return lines.join("\n");
+}

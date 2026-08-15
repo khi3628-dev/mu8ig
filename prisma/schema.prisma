@@ -52,3 +52,14 @@ model SeenArticle {
   @@unique([watchId, articleNo])
   @@index([watchId])
 }
+
+/// 완료한 웨이트 트레이닝 세션. dayType 값들 사이를 순환하며 다음 세션을 정한다
+/// (lib/workout/program.ts의 ROTATION 참고).
+model WorkoutSession {
+  id          String   @id @default(cuid())
+  dayType     String // "A1" | "A2" | "A3" | "B1" | "B2" | "B3"
+  completedAt DateTime @default(now())
+  note        String?
+
+  @@index([completedAt])
+}
