@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>체형별 착장 시뮬레이터</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="head">
+  <h1>체형별 착장 시뮬레이터</h1>
+  <p>신체 치수를 바꾸면 실루엣과 옷이 함께 변합니다. 같은 옷이 체형에 따라 어떻게 달라 보이는지 비교해 보세요.</p>
+</header>
+
+<main class="layout">
+  <section class="stage">
+    <svg id="figure" viewBox="0 -20 200 440" role="img" aria-label="선택한 체형과 착장의 실루엣">
+      <g id="scaler">
+        <g id="skin" class="skin"></g>
+        <g id="bottom" class="bottom"></g>
+        <g id="topShell" class="top"></g>
+        <g id="arms" class="skin"></g>
+        <g id="sleeves" class="top"></g>
+        <g id="head" class="skin"></g>
+      </g>
+    </svg>
+    <div class="readout">
+      <span class="chip" id="bodyType">—</span>
+      <span id="measures"></span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <fieldset class="group">
+      <legend>체형 프리셋</legend>
+      <div class="presets" id="presets">
+        <button type="button" data-preset="hourglass">모래시계</button>
+        <button type="button" data-preset="rectangle">사각형</button>
+        <button type="button" data-preset="triangle">삼각형</button>
+        <button type="button" data-preset="inverted">역삼각형</button>
+        <button type="button" data-preset="round">원형</button>
+      </div>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend>신체 치수</legend>
+      <label class="slider">
+        <span>키 <output id="height-out"></output></span>
+        <input type="range" id="height" min="150" max="190" step="1" value="165" />
+      </label>
+      <label class="slider">
+        <span>어깨너비 <output id="shoulder-out"></output></span>
+        <input type="range" id="shoulder" min="34" max="48" step="0.5" value="39" />
+      </label>
+      <label class="slider">
+        <span>가슴둘레 <output id="bust-out"></output></span>
+        <input type="range" id="bust" min="76" max="112" step="1" value="88" />
+      </label>
+      <label class="slider">
+        <span>허리둘레 <output id="waist-out"></output></span>
+        <input type="range" id="waist" min="58" max="104" step="1" value="68" />
+      </label>
+      <label class="slider">
+        <span>엉덩이둘레 <output id="hip-out"></output></span>
+        <input type="range" id="hip" min="82" max="118" step="1" value="93" />
+      </label>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend>상의</legend>
+      <div class="choices" id="tops"></div>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend>하의</legend>
+      <div class="choices" id="bottoms"></div>
+    </fieldset>
+
+    <div class="verdict">
+      <p class="line"><b id="top-name"></b> <span class="badge" id="top-badge"></span></p>
+      <p class="note" id="top-note"></p>
+      <p class="line"><b id="bottom-name"></b> <span class="badge" id="bottom-badge"></span></p>
+      <p class="note" id="bottom-note"></p>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  체형 분류와 코멘트는 일반적인 스타일링 통념을 단순화한 참고용 기준입니다. 실제 착용감은 원단·패턴·사이즈에 따라 달라집니다.
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
