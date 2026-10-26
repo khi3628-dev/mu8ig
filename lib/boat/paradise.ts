@@ -1,9 +1,11 @@
 // 요트 파라다이스: 레이스·낚시로 번 돈으로 섬과 마리나에 시설을 짓는다.
 // 진행 상황은 이 객체 하나로 직렬화해 저장한다.
 
+import { BASE_STATS, type PlayerStats } from "./race";
+
 export const GRID_W = 10;
 export const GRID_H = 8;
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const SELL_RATE = 0.5;
 
 export type Terrain = "water" | "sand";
@@ -47,9 +49,25 @@ export interface Cell {
   item: ItemId | null;
 }
 
+export type UpgradeId = "engine" | "handling" | "net";
+
+export interface UpgradeDef {
+  name: string;
+  emoji: string;
+  desc: string;
+  costs: number[]; // 레벨별 가격. 길이가 최대 레벨
+}
+
+export const UPGRADES: Record<UpgradeId, UpgradeDef> = {
+  engine: { name: "엔진", emoji: "🚀", desc: "최고 속도 +1.5", costs: [400, 800, 1500, 2500, 4000] },
+  handling: { name: "핸들링", emoji: "🌀", desc: "회전력 +10%", costs: [300, 600, 1100, 1800, 3000] },
+  net: { name: "낚시 그물", emoji: "🎣", desc: "낚시 범위 +2m", costs: [250, 500, 900, 1500, 2500] },
+};
+
 export interface Save {
   version: number;
   money: number;
+  upgrades: Record<UpgradeId, number>;
   cells: Cell[];
   races: number;
   bestRank: number | null;
@@ -64,16 +82,28 @@ export function createSave(): Save {
       cells.push({ terrain: island ? "sand" : "water", item: null });
     }
   }
-  return { version: SAVE_VERSION, money: 500, cells, races: 0, bestRank: null, fishCaught: 0 };
+  return {
+    version: SAVE_VERSION,
+    money: 500,
+    upgrades: { engine: 0, handling: 0, net: 0 },
+    cells,
+    races: 0,
+    bestRank: null,
+    fishCaught: 0,
+  };
 }
 
 export function loadSave(raw: string | null): Save {
   if (!raw) return createSave();
   try {
     const s = JSON.parse(raw) as Save;
-    if (s.version !== SAVE_VERSION || !Array.isArray(s.cells) || s.cells.length !== GRID_W * GRID_H) {
-      return createSave();
+    if (!Array.isArray(s.cells) || s.cells.length !== GRID_W * GRID_H) return createSave();
+    if (s.version === 1) {
+      // v1 → v2: 업그레이드 필드 추가
+      s.version = 2;
+      s.upgrades = { engine: 0, handling: 0, net: 0 };
     }
+    if (s.version !== SAVE_VERSION) return createSave();
     return s;
   } catch {
     return createSave();
@@ -156,4 +186,26 @@ export function applyRaceReward(save: Save, rank: number, prize: number, fishCoi
   save.races += 1;
   save.fishCaught += fishCount;
   save.bestRank = save.bestRank === null ? rank : Math.min(save.bestRank, rank);
+}
+
+export function upgradeCost(save: Save, id: UpgradeId): number | null {
+  return UPGRADES[id].costs[save.upgrades[id]] ?? null;
+}
+
+export function buyUpgrade(save: Save, id: UpgradeId): string | null {
+  const cost = upgradeCost(save, id);
+  if (cost === null) return "최대 레벨이다";
+  if (save.money < cost) return "돈이 부족하다";
+  save.money -= cost;
+  save.upgrades[id] += 1;
+  return null;
+}
+
+export function playerStats(save: Save): PlayerStats {
+  const u = save.upgrades;
+  return {
+    topSpeed: BASE_STATS.topSpeed + u.engine * 1.5,
+    turnRate: BASE_STATS.turnRate * (1 + u.handling * 0.1),
+    catchRadius: BASE_STATS.catchRadius + u.net * 2,
+  };
 }

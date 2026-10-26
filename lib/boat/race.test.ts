@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  COUNTDOWN, FISH, LAPS, RANK_PRIZE, TIME_LIMIT, createRace, raceResult, standings, updateRace,
+  BASE_STATS, CATCH_RADIUS, COUNTDOWN, FISH, LAPS, RANK_PRIZE, TIME_LIMIT, createRace, raceResult, standings,
+  updateRace,
 } from "./race";
 
 const idle = { throttle: 0, steer: 0, fish: false };
@@ -74,5 +75,26 @@ describe("water ski race", () => {
     updateRace(s, 0.01, { ...idle, fish: true });
     expect(s.caught).toEqual([]);
     expect(s.fish).toHaveLength(1);
+  });
+
+  it("엔진 업그레이드는 플레이어 최고 속도를 올린다", () => {
+    const run = (topSpeed: number) => {
+      const s = createRace(() => 0.5, { ...BASE_STATS, topSpeed });
+      s.time = 0;
+      s.boostPads = [];
+      for (let i = 0; i < 100; i++) updateRace(s, 0.05, { ...idle, throttle: 1 });
+      return s.racers[0].speed;
+    };
+    expect(run(BASE_STATS.topSpeed + 6)).toBeGreaterThan(run(BASE_STATS.topSpeed));
+  });
+
+  it("그물 업그레이드는 낚시 범위를 넓힌다", () => {
+    const s = createRace(() => 0.5, { ...BASE_STATS, catchRadius: CATCH_RADIUS + 10 });
+    s.time = 0;
+    s.fishTimer = 999;
+    const p = s.racers[0];
+    s.fish.push({ id: 1, species: 0, x: p.x + CATCH_RADIUS + 5, y: p.y, life: 1, maxLife: 1 });
+    updateRace(s, 0.01, { ...idle, fish: true });
+    expect(s.caught).toEqual([0]);
   });
 });

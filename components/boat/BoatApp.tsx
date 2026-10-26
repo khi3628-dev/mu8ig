@@ -1,14 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FISH, type RaceResult } from "@/lib/boat/race";
-import { applyRaceReward, loadSave, type Save } from "@/lib/boat/paradise";
+import { FISH, type PlayerStats, type RaceResult } from "@/lib/boat/race";
+import { applyRaceReward, loadSave, playerStats, type Save } from "@/lib/boat/paradise";
 import ParadiseView from "./ParadiseView";
 import RaceView from "./RaceView";
 
 const SAVE_KEY = "yacht-paradise-save";
 
-type Screen = { kind: "paradise" } | { kind: "race" } | { kind: "result"; result: RaceResult };
+type Screen =
+  | { kind: "paradise" }
+  | { kind: "race"; stats: PlayerStats } // 출전 시점의 능력치로 고정
+  | { kind: "result"; result: RaceResult };
 
 function readSave(): Save {
   try {
@@ -44,9 +47,9 @@ export default function BoatApp() {
   return (
     <div className="h-screen w-full select-none overflow-hidden bg-gradient-to-b from-sky-600 to-sky-800">
       {screen.kind === "paradise" && (
-        <ParadiseView save={save} onChange={setSave} onRace={() => setScreen({ kind: "race" })} />
+        <ParadiseView save={save} onChange={setSave} onRace={() => setScreen({ kind: "race", stats: playerStats(save) })} />
       )}
-      {screen.kind === "race" && <RaceView onFinish={finishRace} />}
+      {screen.kind === "race" && <RaceView stats={screen.stats} onFinish={finishRace} />}
       {screen.kind === "result" && (
         <ResultView result={screen.result} onBack={() => setScreen({ kind: "paradise" })} />
       )}

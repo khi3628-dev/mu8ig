@@ -11,7 +11,7 @@ export const RANK_PRIZE = [1500, 1000, 700, 450, 300, 200];
 
 const MAX_SPEED = 30;
 const OFF_TRACK_SPEED = 15;
-const BOOST_SPEED = 42;
+const BOOST_MULT = 1.4;
 const ACCEL = 14;
 const BRAKE = 25;
 const DRAG = 6;
@@ -21,6 +21,15 @@ const BOOST_RADIUS = 5;
 const CATCH_SLOW_TIME = 1;
 
 export interface Point { x: number; y: number }
+
+// 업그레이드로 바뀌는 플레이어 능력치
+export interface PlayerStats {
+  topSpeed: number;
+  turnRate: number;
+  catchRadius: number;
+}
+
+export const BASE_STATS: PlayerStats = { topSpeed: MAX_SPEED, turnRate: TURN_RATE, catchRadius: CATCH_RADIUS };
 
 export interface Racer {
   name: string;
@@ -64,6 +73,7 @@ export interface RaceInput {
 }
 
 export interface RaceState {
+  stats: PlayerStats;
   time: number; // 출발 신호 이후 경과 시간 (카운트다운 중엔 음수)
   course: Point[];
   boostPads: Point[];
@@ -88,11 +98,11 @@ export interface RaceResult {
 }
 
 const AI_PROFILES = [
-  { name: "마르코", color: "#ef4444", topSpeed: 28.5 },
-  { name: "소피아", color: "#f97316", topSpeed: 27.5 },
-  { name: "레오", color: "#22c55e", topSpeed: 26.5 },
-  { name: "아이라", color: "#a855f7", topSpeed: 25.5 },
-  { name: "카이", color: "#0ea5e9", topSpeed: 24.5 },
+  { name: "마르코", color: "#ef4444", topSpeed: 27 },
+  { name: "소피아", color: "#f97316", topSpeed: 26 },
+  { name: "레오", color: "#22c55e", topSpeed: 25 },
+  { name: "아이라", color: "#a855f7", topSpeed: 24 },
+  { name: "카이", color: "#0ea5e9", topSpeed: 23 },
 ];
 
 export function createCourse(): Point[] {
@@ -104,7 +114,7 @@ export function createCourse(): Point[] {
   });
 }
 
-export function createRace(rand: () => number = Math.random): RaceState {
+export function createRace(rand: () => number = Math.random, stats: PlayerStats = BASE_STATS): RaceState {
   const course = createCourse();
   const start = course[0];
   const second = course[1];
@@ -112,7 +122,7 @@ export function createRace(rand: () => number = Math.random): RaceState {
   // 출발선 뒤쪽으로 2열 그리드 배치
   const back = { x: -Math.cos(heading), y: -Math.sin(heading) };
   const side = { x: -Math.sin(heading), y: Math.cos(heading) };
-  const profiles = [{ name: "나", color: "#ffffff", topSpeed: MAX_SPEED }, ...AI_PROFILES];
+  const profiles = [{ name: "나", color: "#ffffff", topSpeed: stats.topSpeed }, ...AI_PROFILES];
   const racers: Racer[] = profiles.map((p, i) => {
     const row = Math.floor(i / 2);
     const col = i % 2 === 0 ? -1 : 1;
@@ -138,6 +148,7 @@ export function createRace(rand: () => number = Math.random): RaceState {
       return { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 };
     });
   return {
+    stats,
     time: -COUNTDOWN,
     course,
     boostPads,
@@ -224,7 +235,7 @@ export function updateRace(state: RaceState, dt: number, input: RaceInput, rand:
 }
 
 function maxSpeedFor(state: RaceState, r: Racer, base: number) {
-  let max = r.boost > 0 ? BOOST_SPEED : base;
+  let max = r.boost > 0 ? base * BOOST_MULT : base;
   if (distanceToCourse(state.course, r.x, r.y) > TRACK_HALF) max = Math.min(max, OFF_TRACK_SPEED);
   if (r.slow > 0) max *= 0.6;
   return max;
@@ -237,8 +248,8 @@ function approachSpeed(r: Racer, target: number, dt: number) {
 
 function steerPlayer(state: RaceState, r: Racer, input: RaceInput, dt: number) {
   const grip = Math.min(1, r.speed / 8) + 0.3;
-  r.heading += input.steer * TURN_RATE * grip * dt;
-  const max = maxSpeedFor(state, r, MAX_SPEED);
+  r.heading += input.steer * state.stats.turnRate * grip * dt;
+  const max = maxSpeedFor(state, r, r.topSpeed);
   if (input.throttle > 0) approachSpeed(r, max, dt);
   else if (input.throttle < 0) r.speed = Math.max(0, r.speed - BRAKE * dt);
   else r.speed = Math.max(0, r.speed - DRAG * dt);
@@ -316,7 +327,7 @@ export function tryCatch(state: RaceState, player: Racer) {
   if (state.time < 0 || player.finishTime !== null) return;
   const near = state.fish
     .map((f) => ({ f, d: Math.hypot(f.x - player.x, f.y - player.y) }))
-    .filter(({ d }) => d <= CATCH_RADIUS)
+    .filter(({ d }) => d <= state.stats.catchRadius)
     .sort((a, b) => a.d - b.d)[0];
   if (!near) {
     say(state, "허탕!");

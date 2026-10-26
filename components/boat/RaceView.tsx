@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  CATCH_RADIUS, FISH, LAPS, TIME_LIMIT, TRACK_HALF, createRace, raceResult, standings, updateRace,
-  type RaceResult, type RaceState, type Racer,
+  FISH, LAPS, TIME_LIMIT, TRACK_HALF, createRace, raceResult, standings, updateRace,
+  type PlayerStats, type RaceResult, type RaceState, type Racer,
 } from "@/lib/boat/race";
 
 const PX = 3; // 1미터당 픽셀
@@ -29,14 +29,23 @@ function toHud(s: RaceState): Hud {
   };
 }
 
-export default function RaceView({ onFinish }: { onFinish: (r: RaceResult) => void }) {
+type TouchKey = "gas" | "brake" | "left" | "right";
+
+export default function RaceView({
+  stats,
+  onFinish,
+}: {
+  stats: PlayerStats;
+  onFinish: (r: RaceResult) => void;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const touchRef = useRef({ gas: false, brake: false, left: false, right: false, fish: false });
   const [hud, setHud] = useState<Hud>(() => toHud(createRace()));
 
   useEffect(() => {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
-    const state = createRace();
+    const state = createRace(Math.random, stats);
     const trails = state.racers.map(() => [] as { x: number; y: number }[]);
     const keys = new Set<string>();
     let fishPressed = false;
@@ -66,12 +75,14 @@ export default function RaceView({ onFinish }: { onFinish: (r: RaceResult) => vo
       const dt = Math.min((now - last) / 1000, 0.1);
       last = now;
       const on = (...ks: string[]) => ks.some((k) => keys.has(k));
+      const touch = touchRef.current;
       updateRace(state, dt, {
-        throttle: (on("w", "arrowup") ? 1 : 0) - (on("s", "arrowdown") ? 1 : 0),
-        steer: (on("d", "arrowright") ? 1 : 0) - (on("a", "arrowleft") ? 1 : 0),
-        fish: fishPressed,
+        throttle: (on("w", "arrowup") || touch.gas ? 1 : 0) - (on("s", "arrowdown") || touch.brake ? 1 : 0),
+        steer: (on("d", "arrowright") || touch.right ? 1 : 0) - (on("a", "arrowleft") || touch.left ? 1 : 0),
+        fish: fishPressed || touch.fish,
       });
       fishPressed = false;
+      touch.fish = false;
 
       trailTimer -= dt;
       if (trailTimer <= 0) {
@@ -102,7 +113,17 @@ export default function RaceView({ onFinish }: { onFinish: (r: RaceResult) => vo
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("resize", onResize);
     };
-  }, [onFinish]);
+  }, [onFinish, stats]);
+
+  // 터치 버튼: 누르는 동안만 입력이 켜진다
+  const hold = (k: TouchKey) => ({
+    onPointerDown: (e: React.PointerEvent) => {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      touchRef.current[k] = true;
+    },
+    onPointerUp: () => { touchRef.current[k] = false; },
+    onPointerCancel: () => { touchRef.current[k] = false; },
+  });
 
   const remaining = Math.max(0, TIME_LIMIT - Math.max(0, hud.time));
   const mm = Math.floor(remaining / 60);
@@ -120,9 +141,23 @@ export default function RaceView({ onFinish }: { onFinish: (r: RaceResult) => vo
         <div className="text-sm">🎣 낚시 +{hud.fishCoins}</div>
       </div>
 
-      <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-black/45 px-3 py-2 text-xs leading-5 text-white">
+      <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-black/45 px-3 py-2 text-xs leading-5 text-white pointer-coarse:hidden">
         W/↑ 가속 · S/↓ 감속 · A/D 조향<br />
         Space/F 낚시 (뛰어오른 물고기 근처에서)
+      </div>
+
+      <div className="absolute inset-x-0 bottom-0 hidden touch-none justify-between p-4 pointer-coarse:flex">
+        <div className="flex gap-3">
+          <TouchButton label="◀" {...hold("left")} />
+          <TouchButton label="▶" {...hold("right")} />
+        </div>
+        <div className="flex items-end gap-3">
+          <TouchButton label="🎣" onPointerDown={() => { touchRef.current.fish = true; }} />
+          <div className="flex flex-col gap-3">
+            <TouchButton label="▲" {...hold("gas")} />
+            <TouchButton label="▼" {...hold("brake")} />
+          </div>
+        </div>
       </div>
 
       {hud.time < 0 && (
@@ -141,6 +176,24 @@ export default function RaceView({ onFinish }: { onFinish: (r: RaceResult) => vo
         </div>
       )}
     </div>
+  );
+}
+
+function TouchButton({
+  label,
+  ...handlers
+}: { label: string } & Pick<
+  React.HTMLAttributes<HTMLButtonElement>,
+  "onPointerDown" | "onPointerUp" | "onPointerCancel"
+>) {
+  return (
+    <button
+      {...handlers}
+      onContextMenu={(e) => e.preventDefault()}
+      className="h-16 w-16 rounded-full bg-white/25 text-2xl text-white backdrop-blur active:bg-white/50"
+    >
+      {label}
+    </button>
   );
 }
 
@@ -223,7 +276,7 @@ function draw(
   for (const f of s.fish) {
     const phase = 1 - f.life / f.maxLife;
     const lift = Math.sin(phase * Math.PI) * 30;
-    const near = Math.hypot(f.x - p.x, f.y - p.y) <= CATCH_RADIUS;
+    const near = Math.hypot(f.x - p.x, f.y - p.y) <= s.stats.catchRadius;
     ctx.fillStyle = "rgba(255,255,255,0.5)";
     ctx.beginPath();
     ctx.ellipse(sx(f.x), sy(f.y), 10, 4, 0, 0, Math.PI * 2);

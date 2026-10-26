@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { BASE_STATS } from "./race";
 import {
-  CATALOG, GRID_W, RECLAIM_COST, applyRaceReward, createSave, level, loadSave, luxury, place, reclaim, sell,
+  CATALOG, GRID_W, RECLAIM_COST, UPGRADES, applyRaceReward, buyUpgrade, createSave, level, loadSave, luxury,
+  place, playerStats, reclaim, sell,
 } from "./paradise";
 
 const idx = (x: number, y: number) => y * GRID_W + x;
@@ -67,5 +69,33 @@ describe("yacht paradise", () => {
     expect(loadSave(JSON.stringify(s))).toEqual(s);
     expect(loadSave("garbage")).toEqual(createSave());
     expect(loadSave(null)).toEqual(createSave());
+  });
+
+  it("업그레이드를 사면 돈이 빠지고 능력치가 오른다", () => {
+    const s = createSave();
+    expect(playerStats(s)).toEqual(BASE_STATS);
+    expect(buyUpgrade(s, "engine")).toBeNull();
+    expect(s.money).toBe(500 - UPGRADES.engine.costs[0]);
+    expect(playerStats(s).topSpeed).toBe(BASE_STATS.topSpeed + 1.5);
+    expect(buyUpgrade(s, "engine")).toMatch(/돈/);
+  });
+
+  it("최대 레벨 이상은 살 수 없다", () => {
+    const s = createSave();
+    s.money = 1e6;
+    for (let i = 0; i < UPGRADES.net.costs.length; i++) expect(buyUpgrade(s, "net")).toBeNull();
+    expect(buyUpgrade(s, "net")).toMatch(/최대/);
+    expect(playerStats(s).catchRadius).toBe(BASE_STATS.catchRadius + 10);
+  });
+
+  it("v1 저장본은 업그레이드 0으로 이어서 불러온다", () => {
+    const v2 = createSave();
+    v2.money = 1234;
+    const v1: Record<string, unknown> = { ...v2, version: 1 };
+    delete v1.upgrades;
+    const loaded = loadSave(JSON.stringify(v1));
+    expect(loaded.money).toBe(1234);
+    expect(loaded.version).toBe(2);
+    expect(loaded.upgrades).toEqual({ engine: 0, handling: 0, net: 0 });
   });
 });

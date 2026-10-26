@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import {
-  CATALOG, GRID_W, RECLAIM_COST, level, luxury, place, reclaim, sell,
-  type ItemId, type Save,
+  CATALOG, GRID_W, RECLAIM_COST, UPGRADES, buyUpgrade, level, luxury, place, reclaim, sell, upgradeCost,
+  type ItemId, type Save, type UpgradeId,
 } from "@/lib/boat/paradise";
 
 type Tool = ItemId | "reclaim" | "sell";
@@ -31,6 +31,13 @@ export default function ParadiseView({
     }
     setMessage("");
     onChange(next);
+  };
+
+  const upgrade = (id: UpgradeId) => {
+    const next = structuredClone(save);
+    const err = buyUpgrade(next, id);
+    setMessage(err ?? "");
+    if (!err) onChange(next);
   };
 
   return (
@@ -80,6 +87,34 @@ export default function ParadiseView({
         >
           🏁 레이스 출전
         </button>
+
+        <div className="rounded-xl bg-black/30 p-2">
+          <div className="px-1 pb-1 text-xs text-sky-200">수상스키 정비소</div>
+          <div className="space-y-1">
+            {(Object.keys(UPGRADES) as UpgradeId[]).map((id) => {
+              const u = UPGRADES[id];
+              const lv = save.upgrades[id];
+              const cost = upgradeCost(save, id);
+              return (
+                <button
+                  key={id}
+                  onClick={() => upgrade(id)}
+                  disabled={cost === null}
+                  className={`flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-sm transition hover:bg-white/10 ${
+                    cost !== null && save.money < cost ? "opacity-50" : ""
+                  }`}
+                >
+                  <span>
+                    <span className="font-semibold">{u.emoji} {u.name}</span>
+                    <span className="ml-1 text-amber-300">{"★".repeat(lv)}{"☆".repeat(u.costs.length - lv)}</span>
+                    <span className="block text-[11px] text-sky-200">{u.desc}</span>
+                  </span>
+                  <span className="tabular-nums">{cost === null ? "MAX" : cost.toLocaleString()}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <div className="rounded-xl bg-black/30 p-2">
           <div className="px-1 pb-1 text-xs text-sky-200">건설 도구 (선택 후 칸 클릭)</div>
