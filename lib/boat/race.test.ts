@@ -1,0 +1,78 @@
+import { describe, expect, it } from "vitest";
+import {
+  COUNTDOWN, FISH, LAPS, RANK_PRIZE, TIME_LIMIT, createRace, raceResult, standings, updateRace,
+} from "./race";
+
+const idle = { throttle: 0, steer: 0, fish: false };
+
+describe("water ski race", () => {
+  it("카운트다운 동안은 움직이지 않는다", () => {
+    const s = createRace(() => 0.5);
+    const { x, y } = s.racers[1];
+    for (let i = 0; i < 20; i++) updateRace(s, 0.1, { ...idle, throttle: 1 });
+    expect(s.time).toBeLessThan(0);
+    expect(s.racers[1].x).toBe(x);
+    expect(s.racers[1].y).toBe(y);
+  });
+
+  it("AI는 3바퀴를 3분 안에 완주하고 빠른 순서대로 들어온다", () => {
+    const s = createRace(() => 0.5);
+    for (let i = 0; i < (COUNTDOWN + TIME_LIMIT) * 20 && !s.done; i++) updateRace(s, 0.05, idle, () => 0.5);
+    const ai = s.racers.slice(1);
+    for (const r of ai) {
+      expect(r.lap).toBe(LAPS);
+      expect(r.finishTime).not.toBeNull();
+      expect(r.finishTime!).toBeLessThan(TIME_LIMIT);
+    }
+    // 최고 속도가 높은 AI가 먼저 들어온다
+    const times = ai.map((r) => r.finishTime!);
+    expect([...times].sort((a, b) => a - b)).toEqual(times);
+  });
+
+  it("시간 초과 시 미완주 플레이어는 꼴찌, 상금 절반", () => {
+    const s = createRace(() => 0.5);
+    for (let i = 0; i < (COUNTDOWN + TIME_LIMIT) * 20 + 5 && !s.done; i++) updateRace(s, 0.05, idle, () => 0.5);
+    expect(s.done).toBe(true);
+    const r = raceResult(s);
+    expect(r.finished).toBe(false);
+    expect(r.rank).toBe(6);
+    expect(r.prize).toBe(RANK_PRIZE[5] / 2);
+  });
+
+  it("플레이어가 완주하면 즉시 끝나고 순위대로 상금을 받는다", () => {
+    const s = createRace(() => 0.5);
+    s.time = 0;
+    const p = s.racers[0];
+    p.lap = LAPS - 1;
+    p.next = 0;
+    p.x = s.course[0].x;
+    p.y = s.course[0].y;
+    updateRace(s, 0.01, idle);
+    expect(s.done).toBe(true);
+    expect(standings(s)[0]).toBe(p);
+    expect(raceResult(s)).toMatchObject({ rank: 1, finished: true, prize: RANK_PRIZE[0] });
+  });
+
+  it("근처에서 뛰어오른 물고기를 낚으면 코인을 얻고 잠깐 감속한다", () => {
+    const s = createRace(() => 0.5);
+    s.time = 0;
+    s.fishTimer = 999;
+    const p = s.racers[0];
+    s.fish.push({ id: 1, species: 3, x: p.x + 3, y: p.y, life: 1, maxLife: 1 });
+    updateRace(s, 0.01, { ...idle, fish: true });
+    expect(s.caught).toEqual([3]);
+    expect(p.slow).toBeGreaterThan(0);
+    expect(raceResult(s).fishCoins).toBe(FISH[3].value);
+  });
+
+  it("멀리 있는 물고기는 낚을 수 없다", () => {
+    const s = createRace(() => 0.5);
+    s.time = 0;
+    s.fishTimer = 999;
+    const p = s.racers[0];
+    s.fish.push({ id: 1, species: 0, x: p.x + 30, y: p.y, life: 1, maxLife: 1 });
+    updateRace(s, 0.01, { ...idle, fish: true });
+    expect(s.caught).toEqual([]);
+    expect(s.fish).toHaveLength(1);
+  });
+});

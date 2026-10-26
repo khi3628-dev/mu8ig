@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import BoatGame from "@/components/BoatGame";
+import BoatClient from "./BoatClient";
 
 export const metadata: Metadata = {
-  title: "보트 서바이벌",
+  title: "요트 파라다이스 레이싱",
 };
 
 export default function BoatPage() {
-  return <BoatGame />;
+  return <BoatClient />;
 }
