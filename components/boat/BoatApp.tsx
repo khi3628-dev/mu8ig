@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { FISH, type PlayerStats, type RaceResult } from "@/lib/boat/race";
 import { applyRaceReward, loadSave, playerStats, type Save } from "@/lib/boat/paradise";
-import ParadiseView from "./ParadiseView";
+import ParadiseView, { type BoardProps } from "./ParadiseView";
 import RaceView from "./RaceView";
 
 const SAVE_KEY = "yacht-paradise-save";
@@ -29,7 +29,19 @@ function writeSave(s: Save) {
   }
 }
 
-export default function BoatApp() {
+export interface RaceScreenProps {
+  stats: PlayerStats;
+  onFinish: (r: RaceResult) => void;
+}
+
+// Race·board를 바꿔 끼우면 같은 진행 상황으로 다른 화면(3D 등)을 쓸 수 있다
+export default function BoatApp({
+  Race = RaceView,
+  board,
+}: {
+  Race?: ComponentType<RaceScreenProps>;
+  board?: (props: BoardProps) => React.ReactNode;
+}) {
   const [save, setSave] = useState<Save>(readSave);
   const [screen, setScreen] = useState<Screen>({ kind: "paradise" });
 
@@ -47,9 +59,14 @@ export default function BoatApp() {
   return (
     <div className="h-screen w-full select-none overflow-hidden bg-gradient-to-b from-sky-600 to-sky-800">
       {screen.kind === "paradise" && (
-        <ParadiseView save={save} onChange={setSave} onRace={() => setScreen({ kind: "race", stats: playerStats(save) })} />
+        <ParadiseView
+          save={save}
+          onChange={setSave}
+          onRace={() => setScreen({ kind: "race", stats: playerStats(save) })}
+          board={board}
+        />
       )}
-      {screen.kind === "race" && <RaceView stats={screen.stats} onFinish={finishRace} />}
+      {screen.kind === "race" && <Race stats={screen.stats} onFinish={finishRace} />}
       {screen.kind === "result" && (
         <ResultView result={screen.result} onBack={() => setScreen({ kind: "paradise" })} />
       )}

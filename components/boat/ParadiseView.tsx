@@ -1,21 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   CATALOG, GRID_W, RECLAIM_COST, UPGRADES, buyUpgrade, level, luxury, place, reclaim, sell, upgradeCost,
   type ItemId, type Save, type UpgradeId,
 } from "@/lib/boat/paradise";
 
-type Tool = ItemId | "reclaim" | "sell";
+export type Tool = ItemId | "reclaim" | "sell";
+
+export interface BoardProps {
+  save: Save;
+  tool: Tool;
+  onCell: (i: number) => void;
+}
 
 export default function ParadiseView({
   save,
   onChange,
   onRace,
+  board,
 }: {
   save: Save;
   onChange: (s: Save) => void;
   onRace: () => void;
+  board?: (props: BoardProps) => ReactNode; // 지정하면 2D 격자 대신 이 보드를 그린다
 }) {
   const [tool, setTool] = useState<Tool>("palm");
   const [message, setMessage] = useState("");
@@ -60,23 +68,27 @@ export default function ParadiseView({
           </div>
         </div>
 
-        <div
-          className="grid gap-1 rounded-xl bg-sky-900/60 p-2"
-          style={{ gridTemplateColumns: `repeat(${GRID_W}, minmax(0, 1fr))` }}
-        >
-          {save.cells.map((c, i) => (
-            <button
-              key={i}
-              onClick={() => apply(i)}
-              className={`aspect-square rounded text-xl transition hover:ring-2 hover:ring-white/70 sm:text-2xl ${
-                c.terrain === "sand" ? "bg-amber-200" : "bg-sky-500/70"
-              }`}
-              title={c.item ? CATALOG[c.item].name : c.terrain === "sand" ? "모래섬" : "바다"}
-            >
-              {c.item ? CATALOG[c.item].emoji : ""}
-            </button>
-          ))}
-        </div>
+        {board ? (
+          board({ save, tool, onCell: apply })
+        ) : (
+          <div
+            className="grid gap-1 rounded-xl bg-sky-900/60 p-2"
+            style={{ gridTemplateColumns: `repeat(${GRID_W}, minmax(0, 1fr))` }}
+          >
+            {save.cells.map((c, i) => (
+              <button
+                key={i}
+                onClick={() => apply(i)}
+                className={`aspect-square rounded text-xl transition hover:ring-2 hover:ring-white/70 sm:text-2xl ${
+                  c.terrain === "sand" ? "bg-amber-200" : "bg-sky-500/70"
+                }`}
+                title={c.item ? CATALOG[c.item].name : c.terrain === "sand" ? "모래섬" : "바다"}
+              >
+                {c.item ? CATALOG[c.item].emoji : ""}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="h-5 text-sm text-red-200">{message}</div>
       </div>
 
