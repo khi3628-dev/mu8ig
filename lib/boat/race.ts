@@ -80,6 +80,7 @@ export interface RaceState {
   racers: Racer[]; // [0]이 플레이어
   fish: JumpingFish[];
   caught: number[]; // 잡은 물고기 종 인덱스
+  lastCatch: { species: number; at: number } | null;
   fishTimer: number;
   nextFishId: number;
   message: string;
@@ -155,6 +156,7 @@ export function createRace(rand: () => number = Math.random, stats: PlayerStats 
     racers,
     fish: [],
     caught: [],
+    lastCatch: null,
     fishTimer: 1,
     nextFishId: 1,
     message: "",
@@ -335,9 +337,18 @@ export function tryCatch(state: RaceState, player: Racer) {
   }
   state.fish = state.fish.filter((f) => f !== near.f);
   state.caught.push(near.f.species);
+  state.lastCatch = { species: near.f.species, at: state.time };
   player.slow = CATCH_SLOW_TIME;
   const s = FISH[near.f.species];
   say(state, `${s.emoji} ${s.name} 낚았다! +${s.value}`);
+}
+
+export const LEGEND_SHOW_SECONDS = 2.5;
+
+// 가장 희귀한 물고기를 방금 낚았는지 (화면에 기념 컷을 띄울 때 쓴다)
+export function legendCatchActive(state: RaceState) {
+  const c = state.lastCatch;
+  return c !== null && c.species === FISH.length - 1 && state.time - c.at < LEGEND_SHOW_SECONDS;
 }
 
 export function raceResult(state: RaceState): RaceResult {

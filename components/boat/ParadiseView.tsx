@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { ART, artBg } from "@/lib/boat/art";
 import {
   CATALOG, GRID_W, RECLAIM_COST, UPGRADES, buyUpgrade, level, luxury, place, reclaim, sell, upgradeCost,
   type ItemId, type Save, type UpgradeId,
@@ -52,12 +53,20 @@ export default function ParadiseView({
     <div className="mx-auto flex h-full max-w-5xl flex-col gap-4 overflow-y-auto p-4 text-white md:flex-row">
       <div className="flex-1 space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <div className="text-xs uppercase tracking-widest text-sky-200">My Yacht Paradise</div>
-            <div className="text-2xl font-black">{lv.title}</div>
-            <div className="text-sm text-sky-100">
-              럭셔리 {lux}
-              {lv.next && <> · 다음 단계 &lsquo;{lv.next.title}&rsquo;까지 {lv.next.luxury - lux}</>}
+          <div className="flex items-center gap-3">
+            <div
+              className="h-16 w-16 shrink-0 rounded-full border-2 border-amber-300 bg-sky-200 bg-cover bg-top shadow-lg"
+              style={artBg(ART.avatar)}
+              role="img"
+              aria-label="내 캐릭터"
+            />
+            <div>
+              <div className="text-xs uppercase tracking-widest text-sky-200">My Yacht Paradise</div>
+              <div className="text-2xl font-black">{lv.title}</div>
+              <div className="text-sm text-sky-100">
+                럭셔리 {lux}
+                {lv.next && <> · 다음 단계 &lsquo;{lv.next.title}&rsquo;까지 {lv.next.luxury - lux}</>}
+              </div>
             </div>
           </div>
           <div className="text-right">

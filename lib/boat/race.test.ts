@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BASE_STATS, CATCH_RADIUS, COUNTDOWN, FISH, LAPS, RANK_PRIZE, TIME_LIMIT, createRace, raceResult, standings,
-  updateRace,
+  legendCatchActive, updateRace,
 } from "./race";
 
 const idle = { throttle: 0, steer: 0, fish: false };
@@ -96,5 +96,29 @@ describe("water ski race", () => {
     s.fish.push({ id: 1, species: 0, x: p.x + CATCH_RADIUS + 5, y: p.y, life: 1, maxLife: 1 });
     updateRace(s, 0.01, { ...idle, fish: true });
     expect(s.caught).toEqual([0]);
+  });
+
+  it("가장 희귀한 물고기를 낚으면 잠깐만 기념 컷 신호가 켜진다", () => {
+    const s = createRace(() => 0.5);
+    s.time = 0;
+    s.fishTimer = 999;
+    const p = s.racers[0];
+    s.fish.push({ id: 1, species: FISH.length - 1, x: p.x + 2, y: p.y, life: 5, maxLife: 5 });
+    expect(legendCatchActive(s)).toBe(false);
+    updateRace(s, 0.01, { ...idle, fish: true });
+    expect(legendCatchActive(s)).toBe(true);
+    for (let i = 0; i < 60; i++) updateRace(s, 0.05, idle);
+    expect(legendCatchActive(s)).toBe(false);
+  });
+
+  it("흔한 물고기는 기념 컷을 띄우지 않는다", () => {
+    const s = createRace(() => 0.5);
+    s.time = 0;
+    s.fishTimer = 999;
+    const p = s.racers[0];
+    s.fish.push({ id: 1, species: 0, x: p.x + 2, y: p.y, life: 5, maxLife: 5 });
+    updateRace(s, 0.01, { ...idle, fish: true });
+    expect(s.caught).toEqual([0]);
+    expect(legendCatchActive(s)).toBe(false);
   });
 });

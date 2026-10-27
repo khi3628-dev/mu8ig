@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  FISH, LAPS, TIME_LIMIT, TRACK_HALF, createRace, raceResult, standings, updateRace,
+  FISH, LAPS, TIME_LIMIT, TRACK_HALF, createRace, legendCatchActive, raceResult, standings, updateRace,
   type PlayerStats, type RaceResult, type RaceState, type Racer,
 } from "@/lib/boat/race";
+import CatchBanner from "./CatchBanner";
 
 const PX = 3; // 1미터당 픽셀
 
@@ -14,6 +15,7 @@ interface Hud {
   rank: number;
   speed: number;
   fishCoins: number;
+  legend: boolean;
   message: string;
 }
 
@@ -25,6 +27,7 @@ function toHud(s: RaceState): Hud {
     rank: standings(s).indexOf(p) + 1,
     speed: p.speed,
     fishCoins: s.caught.reduce((sum, i) => sum + FISH[i].value, 0),
+    legend: legendCatchActive(s),
     message: s.messageTimer > 0 ? s.message : "",
   };
 }
@@ -170,6 +173,7 @@ export default function RaceView({
           GO!
         </div>
       )}
+      <CatchBanner show={hud.legend} />
       {hud.message && (
         <div className="pointer-events-none absolute left-1/2 top-24 -translate-x-1/2 rounded-full bg-white/90 px-5 py-2 text-lg font-bold text-sky-900 shadow">
           {hud.message}

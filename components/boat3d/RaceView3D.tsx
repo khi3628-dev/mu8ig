@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { RaceScreenProps } from "@/components/boat/BoatApp";
-import { FISH, LAPS, TIME_LIMIT, TRACK_HALF, createRace, raceResult, standings, updateRace, type RaceState } from "@/lib/boat/race";
+import CatchBanner from "@/components/boat/CatchBanner";
+import { FISH, LAPS, TIME_LIMIT, TRACK_HALF, createRace, legendCatchActive, raceResult, standings, updateRace, type RaceState } from "@/lib/boat/race";
 import {
   PLAYER_STYLE, RIVAL_STYLES, createFish, createGate, createIsland, createJetSki, createSuperyacht,
   disposeObject,
@@ -23,6 +24,7 @@ interface Hud {
   speed: number;
   fishCoins: number;
   canFish: boolean;
+  legend: boolean;
   message: string;
 }
 
@@ -35,6 +37,7 @@ function toHud(s: RaceState, canFish: boolean): Hud {
     speed: p.speed,
     fishCoins: s.caught.reduce((sum, i) => sum + FISH[i].value, 0),
     canFish,
+    legend: legendCatchActive(s),
     message: s.messageTimer > 0 ? s.message : "",
   };
 }
@@ -528,6 +531,7 @@ export default function RaceView3D({ stats, onFinish }: RaceScreenProps) {
           GO!
         </div>
       )}
+      <CatchBanner show={hud.legend} />
       {hud.message && (
         <div className="pointer-events-none absolute left-1/2 top-24 -translate-x-1/2 rounded-full bg-white/90 px-5 py-2 text-lg font-bold text-sky-900 shadow">
           {hud.message}

@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { FISH, type PlayerStats, type RaceResult } from "@/lib/boat/race";
 import { applyRaceReward, loadSave, playerStats, type Save } from "@/lib/boat/paradise";
+import { ART, artBg } from "@/lib/boat/art";
 import ParadiseView, { type BoardProps } from "./ParadiseView";
 import RaceView from "./RaceView";
 
 const SAVE_KEY = "yacht-paradise-save";
 
 type Screen =
+  | { kind: "title" }
   | { kind: "paradise" }
   | { kind: "race"; stats: PlayerStats } // 출전 시점의 능력치로 고정
   | { kind: "result"; result: RaceResult };
@@ -43,7 +45,7 @@ export default function BoatApp({
   board?: (props: BoardProps) => React.ReactNode;
 }) {
   const [save, setSave] = useState<Save>(readSave);
-  const [screen, setScreen] = useState<Screen>({ kind: "paradise" });
+  const [screen, setScreen] = useState<Screen>({ kind: "title" });
 
   useEffect(() => writeSave(save), [save]);
 
@@ -58,6 +60,7 @@ export default function BoatApp({
 
   return (
     <div className="h-screen w-full select-none overflow-hidden bg-gradient-to-b from-sky-600 to-sky-800">
+      {screen.kind === "title" && <TitleView save={save} onStart={() => setScreen({ kind: "paradise" })} />}
       {screen.kind === "paradise" && (
         <ParadiseView
           save={save}
@@ -74,18 +77,49 @@ export default function BoatApp({
   );
 }
 
+function TitleView({ save, onStart }: { save: Save; onStart: () => void }) {
+  return (
+    <div className="relative flex h-full flex-col justify-end bg-cover bg-center" style={artBg(ART.title)}>
+      <div className="absolute inset-0 bg-gradient-to-t from-sky-950/90 via-sky-950/30 to-transparent" />
+      <div className="relative mx-auto w-full max-w-3xl space-y-4 p-6 pb-10 text-center text-white">
+        <div className="text-xs uppercase tracking-[0.3em] text-amber-200">Jet Ski Racing · Yacht Paradise</div>
+        <h1 className="text-4xl font-black drop-shadow-lg sm:text-6xl">요트 파라다이스 레이싱</h1>
+        <p className="text-sm text-sky-100 sm:text-base">
+          3분 레이스로 순위를 가리고, 낚시와 상금으로 나만의 요트 섬을 만든다.
+        </p>
+        <button
+          onClick={onStart}
+          className="rounded-full bg-white px-10 py-3 text-lg font-black text-sky-900 shadow-xl transition hover:bg-amber-200"
+        >
+          게임 시작
+        </button>
+        {save.races > 0 && (
+          <div className="text-xs text-sky-200">
+            💰 {save.money.toLocaleString()} · 레이스 {save.races}회 · 최고 {save.bestRank}위
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ResultView({ result, onBack }: { result: RaceResult; onBack: () => void }) {
   const counts = new Map<number, number>();
   for (const i of result.caught) counts.set(i, (counts.get(i) ?? 0) + 1);
   return (
     <div className="flex h-full items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 text-sky-950 shadow-2xl">
-        <div className="text-center">
+      <div className="w-full max-w-md space-y-4 overflow-hidden rounded-2xl bg-white pb-6 text-sky-950 shadow-2xl">
+        <div className="relative h-44 w-full bg-cover bg-top" style={artBg(result.rank <= 3 ? ART.podium : ART.ski)}>
+          {result.rank === 1 && (
+            <div className="absolute bottom-2 left-3 rounded-full bg-amber-300 px-3 py-1 text-sm font-black text-sky-950">🏆 우승!</div>
+          )}
+        </div>
+        <div className="px-6 text-center">
           <div className="text-sm text-sky-600">{result.finished ? "완주" : "시간 초과 · 상금 50%"}</div>
           <div className="text-5xl font-black">{result.rank}위</div>
           <div className="text-sm text-sky-600 tabular-nums">{result.time.toFixed(1)}초</div>
         </div>
-        <ol className="space-y-1 text-sm">
+        <ol className="space-y-1 px-6 text-sm">
           {result.standings.map((s, i) => (
             <li
               key={s.name}
@@ -96,7 +130,7 @@ function ResultView({ result, onBack }: { result: RaceResult; onBack: () => void
             </li>
           ))}
         </ol>
-        <div className="space-y-1 border-t pt-3 text-sm">
+        <div className="mx-6 space-y-1 border-t pt-3 text-sm">
           <div className="flex justify-between"><span>순위 상금</span><span className="tabular-nums">💰 {result.prize}</span></div>
           <div className="flex justify-between">
             <span>
@@ -111,7 +145,7 @@ function ResultView({ result, onBack }: { result: RaceResult; onBack: () => void
         </div>
         <button
           onClick={onBack}
-          className="w-full rounded-xl bg-sky-700 py-3 font-bold text-white hover:bg-sky-800"
+          className="mx-6 w-[calc(100%-3rem)] rounded-xl bg-sky-700 py-3 font-bold text-white hover:bg-sky-800"
         >
           파라다이스로 돌아가기
         </button>
