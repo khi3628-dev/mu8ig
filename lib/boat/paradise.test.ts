@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { BASE_STATS } from "./race";
+import { BASE_STATS, NO_PERKS } from "./race";
 import {
-  CATALOG, GRID_W, RECLAIM_COST, UPGRADES, applyRaceReward, buyUpgrade, createSave, level, loadSave, luxury,
-  place, playerStats, reclaim, sell,
+  CATALOG, GRID_W, PERK_CAPS, RECLAIM_COST, UPGRADES, applyRaceReward, buyUpgrade, createSave, level, loadSave,
+  luxury, perkLabel, place, playerStats, racePerks, reclaim, sell,
 } from "./paradise";
 
 const idx = (x: number, y: number) => y * GRID_W + x;
@@ -97,5 +97,39 @@ describe("yacht paradise", () => {
     expect(loaded.money).toBe(1234);
     expect(loaded.version).toBe(2);
     expect(loaded.upgrades).toEqual({ engine: 0, handling: 0, net: 0 });
+  });
+
+  it("시설이 없으면 레이스 효과도 없다", () => {
+    expect(racePerks(createSave())).toEqual(NO_PERKS);
+  });
+
+  it("지은 시설의 레이스 효과가 더해진다", () => {
+    const s = createSave();
+    s.money = 1e6;
+    place(s, idx(3, 3), "sunbed");
+    place(s, idx(4, 3), "villa");
+    place(s, idx(5, 3), "bar");
+    place(s, idx(6, 3), "palm");
+    place(s, idx(3, 4), "lighthouse");
+    place(s, idx(2, 4), "dock");
+    place(s, idx(1, 4), "yacht");
+    expect(racePerks(s)).toEqual({ prize: 0.13, fish: 0.17, startSpeed: 5, boost: 0.3 });
+  });
+
+  it("같은 시설을 잔뜩 지어도 상한에서 멈춘다", () => {
+    const s = createSave();
+    s.money = 1e6;
+    for (let x = 0; x < GRID_W; x += 2) place(s, idx(x, 0), "dock");
+    for (let x = 1; x < GRID_W; x += 2) place(s, idx(x, 0), "superyacht");
+    for (let x = 3; x <= 6; x++) for (const y of [3, 4]) place(s, idx(x, y), "villa"); // 빌라 8채 = +80%
+    const p = racePerks(s);
+    expect(p.startSpeed).toBe(PERK_CAPS.startSpeed);
+    expect(p.prize).toBe(PERK_CAPS.prize);
+  });
+
+  it("효과 설명 문구", () => {
+    expect(perkLabel({ prize: 0.1 })).toBe("상금 +10%");
+    expect(perkLabel({ startSpeed: 12 })).toBe("출발 대시 +43km/h");
+    expect(perkLabel({})).toBe("");
   });
 });

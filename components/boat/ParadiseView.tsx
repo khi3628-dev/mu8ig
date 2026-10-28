@@ -3,7 +3,8 @@
 import { useState, type ReactNode } from "react";
 import { ART, artBg } from "@/lib/boat/art";
 import {
-  CATALOG, GRID_W, RECLAIM_COST, UPGRADES, buyUpgrade, level, luxury, place, reclaim, sell, upgradeCost,
+  CATALOG, GRID_W, ITEM_PERKS, PERK_CAPS, RECLAIM_COST, UPGRADES, buyUpgrade, level, luxury, perkLabel, place,
+  racePerks, reclaim, sell, upgradeCost,
   type ItemId, type Save, type UpgradeId,
 } from "@/lib/boat/paradise";
 
@@ -109,6 +110,8 @@ export default function ParadiseView({
           🏁 레이스 출전
         </button>
 
+        <PerkPanel save={save} />
+
         <div className="rounded-xl bg-black/30 p-2">
           <div className="px-1 pb-1 text-xs text-sky-200">수상스키 정비소</div>
           <div className="space-y-1">
@@ -149,7 +152,9 @@ export default function ParadiseView({
                   disabled={save.money < d.cost}
                   onClick={() => setTool(id)}
                   label={`${d.emoji} ${d.name}`}
-                  sub={`${d.on === "sand" ? "섬" : d.needsDock ? "부두 옆" : "바다"} · 럭셔리 ${d.luxury}`}
+                  sub={[d.on === "sand" ? "섬" : d.needsDock ? "부두 옆" : "바다", `럭셔리 ${d.luxury}`, perkLabel(ITEM_PERKS[id] ?? {})]
+                    .filter(Boolean)
+                    .join(" · ")}
                   cost={d.cost}
                 />
               );
@@ -171,6 +176,35 @@ export default function ParadiseView({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// 지금 섬이 레이스에 주는 효과. 건설이 레이스와 이어진다는 걸 보여준다.
+function PerkPanel({ save }: { save: Save }) {
+  const p = racePerks(save);
+  const rows: { label: string; value: string; on: boolean; max: boolean }[] = [
+    { label: "🏖️ 순위 상금", value: `+${Math.round(p.prize * 100)}%`, on: p.prize > 0, max: p.prize >= PERK_CAPS.prize },
+    { label: "🍹 낚시 코인", value: `+${Math.round(p.fish * 100)}%`, on: p.fish > 0, max: p.fish >= PERK_CAPS.fish },
+    { label: "⛵ 출발 대시", value: `+${Math.round(p.startSpeed * 3.6)}km/h`, on: p.startSpeed > 0, max: p.startSpeed >= PERK_CAPS.startSpeed },
+    { label: "🗼 파도 부스트", value: `+${Math.round(p.boost * 100)}%`, on: p.boost > 0, max: p.boost >= PERK_CAPS.boost },
+  ];
+  const any = rows.some((r) => r.on);
+  return (
+    <div className="rounded-xl bg-black/30 p-3 text-sm">
+      <div className="pb-1 text-xs text-sky-200">내 섬의 레이스 효과</div>
+      <div className="space-y-0.5">
+        {rows.map((r) => (
+          <div key={r.label} className={`flex justify-between ${r.on ? "" : "opacity-45"}`}>
+            <span>{r.label}</span>
+            <span className="tabular-nums font-semibold text-amber-200">
+              {r.value}
+              {r.max && <span className="ml-1 text-[10px] text-sky-200">MAX</span>}
+            </span>
+          </div>
+        ))}
+      </div>
+      {!any && <div className="pt-1 text-[11px] text-sky-200">시설을 지으면 다음 레이스부터 유리해진다</div>}
     </div>
   );
 }

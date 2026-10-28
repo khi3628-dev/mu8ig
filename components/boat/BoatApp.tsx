@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ComponentType } from "react";
-import { FISH, type PlayerStats, type RaceResult } from "@/lib/boat/race";
-import { applyRaceReward, loadSave, playerStats, type Save } from "@/lib/boat/paradise";
+import { FISH, type PlayerStats, type RacePerks, type RaceResult } from "@/lib/boat/race";
+import { applyRaceReward, loadSave, playerStats, racePerks, type Save } from "@/lib/boat/paradise";
 import { ART, artBg } from "@/lib/boat/art";
 import ParadiseView, { type BoardProps } from "./ParadiseView";
 import RaceView from "./RaceView";
@@ -12,7 +12,7 @@ const SAVE_KEY = "yacht-paradise-save";
 type Screen =
   | { kind: "title" }
   | { kind: "paradise" }
-  | { kind: "race"; stats: PlayerStats } // 출전 시점의 능력치로 고정
+  | { kind: "race"; stats: PlayerStats; perks: RacePerks } // 출전 시점의 능력치·시설 효과로 고정
   | { kind: "result"; result: RaceResult };
 
 function readSave(): Save {
@@ -33,6 +33,7 @@ function writeSave(s: Save) {
 
 export interface RaceScreenProps {
   stats: PlayerStats;
+  perks: RacePerks;
   onFinish: (r: RaceResult) => void;
 }
 
@@ -65,11 +66,11 @@ export default function BoatApp({
         <ParadiseView
           save={save}
           onChange={setSave}
-          onRace={() => setScreen({ kind: "race", stats: playerStats(save) })}
+          onRace={() => setScreen({ kind: "race", stats: playerStats(save), perks: racePerks(save) })}
           board={board}
         />
       )}
-      {screen.kind === "race" && <Race stats={screen.stats} onFinish={finishRace} />}
+      {screen.kind === "race" && <Race stats={screen.stats} perks={screen.perks} onFinish={finishRace} />}
       {screen.kind === "result" && (
         <ResultView result={screen.result} onBack={() => setScreen({ kind: "paradise" })} />
       )}
@@ -103,6 +104,15 @@ function TitleView({ save, onStart }: { save: Save; onStart: () => void }) {
   );
 }
 
+// 시설 효과로 붙은 보너스 표시
+function BonusTag({ value }: { value: number }) {
+  return (
+    <span className="ml-1 rounded bg-amber-100 px-1.5 text-[11px] font-bold text-amber-700">
+      🏝️ +{Math.round(value * 100)}%
+    </span>
+  );
+}
+
 function ResultView({ result, onBack }: { result: RaceResult; onBack: () => void }) {
   const counts = new Map<number, number>();
   for (const i of result.caught) counts.set(i, (counts.get(i) ?? 0) + 1);
@@ -131,10 +141,13 @@ function ResultView({ result, onBack }: { result: RaceResult; onBack: () => void
           ))}
         </ol>
         <div className="mx-6 space-y-1 border-t pt-3 text-sm">
-          <div className="flex justify-between"><span>순위 상금</span><span className="tabular-nums">💰 {result.prize}</span></div>
+          <div className="flex justify-between">
+            <span>순위 상금{result.perks.prize > 0 && <BonusTag value={result.perks.prize} />}</span>
+            <span className="tabular-nums">💰 {result.prize}</span>
+          </div>
           <div className="flex justify-between">
             <span>
-              낚시{" "}
+              낚시{result.perks.fish > 0 && <BonusTag value={result.perks.fish} />}{" "}
               {[...counts].map(([i, n]) => `${FISH[i].emoji}×${n}`).join(" ") || "-"}
             </span>
             <span className="tabular-nums">💰 {result.fishCoins}</span>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  BASE_STATS, CATCH_RADIUS, COUNTDOWN, FISH, LAPS, RANK_PRIZE, TIME_LIMIT, createRace, raceResult, standings,
-  legendCatchActive, updateRace,
+  BASE_STATS, CATCH_RADIUS, COUNTDOWN, FISH, LAPS, NO_PERKS, RANK_PRIZE, TIME_LIMIT, createRace, raceResult,
+  standings, legendCatchActive, updateRace,
 } from "./race";
 
 const idle = { throttle: 0, steer: 0, fish: false };
@@ -120,5 +120,46 @@ describe("water ski race", () => {
     updateRace(s, 0.01, { ...idle, fish: true });
     expect(s.caught).toEqual([0]);
     expect(legendCatchActive(s)).toBe(false);
+  });
+
+  describe("파라다이스 시설 효과", () => {
+    it("상금·낚시 보너스가 결과에 반영된다", () => {
+      const s = createRace(() => 0.5, BASE_STATS, { ...NO_PERKS, prize: 0.1, fish: 0.5 });
+      s.time = 0;
+      s.fishTimer = 999;
+      const p = s.racers[0];
+      s.fish.push({ id: 1, species: 3, x: p.x + 2, y: p.y, life: 5, maxLife: 5 });
+      updateRace(s, 0.01, { ...idle, fish: true });
+      p.lap = LAPS - 1;
+      p.next = 0;
+      p.x = s.course[0].x;
+      p.y = s.course[0].y;
+      updateRace(s, 0.01, idle);
+      expect(raceResult(s)).toMatchObject({ rank: 1, prize: Math.round(RANK_PRIZE[0] * 1.1), fishCoins: 600 });
+    });
+
+    it("출발 대시: 카운트다운 동안은 서 있다가 GO와 동시에 그 속도로 출발한다", () => {
+      const s = createRace(() => 0.5, BASE_STATS, { ...NO_PERKS, startSpeed: 12 });
+      const start = { x: s.racers[0].x, y: s.racers[0].y };
+      updateRace(s, COUNTDOWN - 0.05, idle);
+      expect(s.racers[0]).toMatchObject(start);
+      updateRace(s, 0.1, idle);
+      expect(s.racers[0].speed).toBeGreaterThan(11);
+      expect(Math.hypot(s.racers[0].x - start.x, s.racers[0].y - start.y)).toBeGreaterThan(0.5);
+    });
+
+    it("파도 부스트 지속시간이 늘어난다 (플레이어만)", () => {
+      const run = (boost: number) => {
+        const s = createRace(() => 0.5, BASE_STATS, { ...NO_PERKS, boost });
+        s.time = 0;
+        const p = s.racers[0];
+        p.x = s.boostPads[0].x;
+        p.y = s.boostPads[0].y;
+        updateRace(s, 0.01, idle);
+        return p.boost;
+      };
+      expect(run(0)).toBeCloseTo(1.5, 1);
+      expect(run(1)).toBeCloseTo(3, 1);
+    });
   });
 });

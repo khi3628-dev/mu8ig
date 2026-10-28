@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  FISH, LAPS, TIME_LIMIT, TRACK_HALF, createRace, legendCatchActive, raceResult, standings, updateRace,
-  type PlayerStats, type RaceResult, type RaceState, type Racer,
+  FISH, LAPS, TIME_LIMIT, TRACK_HALF, createRace, fishCoins, fishValue, legendCatchActive, raceResult, standings, updateRace,
+  type PlayerStats, type RacePerks, type RaceResult, type RaceState, type Racer,
 } from "@/lib/boat/race";
 import CatchBanner from "./CatchBanner";
 
@@ -15,7 +15,7 @@ interface Hud {
   rank: number;
   speed: number;
   fishCoins: number;
-  legend: boolean;
+  legend: number; // 기념 컷에 띄울 금액 (0이면 숨김)
   message: string;
 }
 
@@ -26,8 +26,8 @@ function toHud(s: RaceState): Hud {
     lap: Math.min(p.lap + 1, LAPS),
     rank: standings(s).indexOf(p) + 1,
     speed: p.speed,
-    fishCoins: s.caught.reduce((sum, i) => sum + FISH[i].value, 0),
-    legend: legendCatchActive(s),
+    fishCoins: fishCoins(s),
+    legend: legendCatchActive(s) ? fishValue(s, FISH.length - 1) : 0,
     message: s.messageTimer > 0 ? s.message : "",
   };
 }
@@ -36,9 +36,11 @@ type TouchKey = "gas" | "brake" | "left" | "right";
 
 export default function RaceView({
   stats,
+  perks,
   onFinish,
 }: {
   stats: PlayerStats;
+  perks: RacePerks;
   onFinish: (r: RaceResult) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -48,7 +50,7 @@ export default function RaceView({
   useEffect(() => {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
-    const state = createRace(Math.random, stats);
+    const state = createRace(Math.random, stats, perks);
     const trails = state.racers.map(() => [] as { x: number; y: number }[]);
     const keys = new Set<string>();
     let fishPressed = false;
@@ -116,7 +118,7 @@ export default function RaceView({
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("resize", onResize);
     };
-  }, [onFinish, stats]);
+  }, [onFinish, stats, perks]);
 
   // 터치 버튼: 누르는 동안만 입력이 켜진다
   const hold = (k: TouchKey) => ({
@@ -173,7 +175,7 @@ export default function RaceView({
           GO!
         </div>
       )}
-      <CatchBanner show={hud.legend} />
+      <CatchBanner value={hud.legend} />
       {hud.message && (
         <div className="pointer-events-none absolute left-1/2 top-24 -translate-x-1/2 rounded-full bg-white/90 px-5 py-2 text-lg font-bold text-sky-900 shadow">
           {hud.message}

@@ -1,7 +1,7 @@
 // 요트 파라다이스: 레이스·낚시로 번 돈으로 섬과 마리나에 시설을 짓는다.
 // 진행 상황은 이 객체 하나로 직렬화해 저장한다.
 
-import { BASE_STATS, type PlayerStats } from "./race";
+import { BASE_STATS, NO_PERKS, type PlayerStats, type RacePerks } from "./race";
 
 export const GRID_W = 10;
 export const GRID_H = 8;
@@ -33,6 +33,41 @@ export const CATALOG: Record<ItemId, ItemDef> = {
   yacht: { name: "요트", emoji: "⛵", cost: 2500, on: "water", needsDock: true, luxury: 25 },
   superyacht: { name: "슈퍼요트", emoji: "🛥️", cost: 8000, on: "water", needsDock: true, luxury: 80 },
 };
+
+// 시설 하나당 레이스 효과. 같은 효과는 더해지고 PERK_CAPS에서 멈춘다.
+export const ITEM_PERKS: Partial<Record<ItemId, Partial<RacePerks>>> = {
+  sunbed: { prize: 0.03 },
+  villa: { prize: 0.1 },
+  palm: { fish: 0.02 },
+  bar: { fish: 0.15 },
+  yacht: { startSpeed: 5 },
+  superyacht: { startSpeed: 12 },
+  pool: { boost: 0.1 },
+  lighthouse: { boost: 0.3 },
+};
+
+export const PERK_CAPS: RacePerks = { prize: 0.5, fish: 1, startSpeed: 20, boost: 1 };
+
+const PERK_KEYS = Object.keys(NO_PERKS) as (keyof RacePerks)[];
+
+export function racePerks(save: Save): RacePerks {
+  const sum = { ...NO_PERKS };
+  for (const c of save.cells) {
+    const p = c.item ? ITEM_PERKS[c.item] : undefined;
+    if (p) for (const k of PERK_KEYS) sum[k] += p[k] ?? 0;
+  }
+  for (const k of PERK_KEYS) sum[k] = Math.min(PERK_CAPS[k], Math.round(sum[k] * 1000) / 1000);
+  return sum;
+}
+
+export function perkLabel(p: Partial<RacePerks>) {
+  const parts: string[] = [];
+  if (p.prize) parts.push(`상금 +${Math.round(p.prize * 100)}%`);
+  if (p.fish) parts.push(`낚시 +${Math.round(p.fish * 100)}%`);
+  if (p.startSpeed) parts.push(`출발 대시 +${Math.round(p.startSpeed * 3.6)}km/h`);
+  if (p.boost) parts.push(`부스트 +${Math.round(p.boost * 100)}%`);
+  return parts.join(" · ");
+}
 
 export const RECLAIM_COST = 400; // 바다를 메워 모래섬 확장
 

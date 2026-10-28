@@ -31,6 +31,16 @@ export interface PlayerStats {
 
 export const BASE_STATS: PlayerStats = { topSpeed: MAX_SPEED, turnRate: TURN_RATE, catchRadius: CATCH_RADIUS };
 
+// 파라다이스 시설이 플레이어에게 주는 레이스 효과
+export interface RacePerks {
+  prize: number; // 순위 상금 보너스 비율
+  fish: number; // 낚시 코인 보너스 비율
+  startSpeed: number; // 출발 신호와 동시에 갖는 속도 (m/s)
+  boost: number; // 파도 부스트 지속시간 보너스 비율
+}
+
+export const NO_PERKS: RacePerks = { prize: 0, fish: 0, startSpeed: 0, boost: 0 };
+
 export interface Racer {
   name: string;
   color: string;
@@ -74,6 +84,7 @@ export interface RaceInput {
 
 export interface RaceState {
   stats: PlayerStats;
+  perks: RacePerks;
   time: number; // 출발 신호 이후 경과 시간 (카운트다운 중엔 음수)
   course: Point[];
   boostPads: Point[];
@@ -95,6 +106,7 @@ export interface RaceResult {
   prize: number;
   fishCoins: number;
   caught: number[];
+  perks: RacePerks;
   standings: { name: string; isPlayer: boolean; time: number | null }[];
 }
 
@@ -115,7 +127,11 @@ export function createCourse(): Point[] {
   });
 }
 
-export function createRace(rand: () => number = Math.random, stats: PlayerStats = BASE_STATS): RaceState {
+export function createRace(
+  rand: () => number = Math.random,
+  stats: PlayerStats = BASE_STATS,
+  perks: RacePerks = NO_PERKS,
+): RaceState {
   const course = createCourse();
   const start = course[0];
   const second = course[1];
@@ -133,7 +149,7 @@ export function createRace(rand: () => number = Math.random, stats: PlayerStats 
       x: start.x + back.x * (8 + row * 10) + side.x * col * 6,
       y: start.y + back.y * (8 + row * 10) + side.y * col * 6,
       heading,
-      speed: 0,
+      speed: i === 0 ? perks.startSpeed : 0, // 카운트다운 중엔 움직이지 않다가 GO와 동시에 이 속도로 출발
       laneOffset: i === 0 ? 0 : (rand() - 0.5) * 16,
       lap: 0,
       next: 1,
@@ -150,6 +166,7 @@ export function createRace(rand: () => number = Math.random, stats: PlayerStats 
     });
   return {
     stats,
+    perks,
     time: -COUNTDOWN,
     course,
     boostPads,
@@ -224,7 +241,7 @@ export function updateRace(state: RaceState, dt: number, input: RaceInput, rand:
     for (const pad of state.boostPads) {
       if (Math.hypot(pad.x - r.x, pad.y - r.y) < BOOST_RADIUS) {
         if (r.isPlayer && r.boost === 0) say(state, "파도 부스트!");
-        r.boost = BOOST_TIME;
+        r.boost = BOOST_TIME * (r.isPlayer ? 1 + state.perks.boost : 1);
       }
     }
     checkpoints(state, r);
@@ -340,7 +357,15 @@ export function tryCatch(state: RaceState, player: Racer) {
   state.lastCatch = { species: near.f.species, at: state.time };
   player.slow = CATCH_SLOW_TIME;
   const s = FISH[near.f.species];
-  say(state, `${s.emoji} ${s.name} 낚았다! +${s.value}`);
+  say(state, `${s.emoji} ${s.name} 낚았다! +${fishValue(state, near.f.species)}`);
+}
+
+export function fishValue(state: RaceState, species: number) {
+  return Math.round(FISH[species].value * (1 + state.perks.fish));
+}
+
+export function fishCoins(state: RaceState) {
+  return state.caught.reduce((sum, i) => sum + fishValue(state, i), 0);
 }
 
 export const LEGEND_SHOW_SECONDS = 2.5;
@@ -356,15 +381,15 @@ export function raceResult(state: RaceState): RaceResult {
   const player = state.racers[0];
   const rank = order.indexOf(player) + 1;
   const finished = player.finishTime !== null;
-  const prize = Math.round(RANK_PRIZE[rank - 1] * (finished ? 1 : 0.5));
-  const fishCoins = state.caught.reduce((s, i) => s + FISH[i].value, 0);
+  const prize = Math.round(RANK_PRIZE[rank - 1] * (finished ? 1 : 0.5) * (1 + state.perks.prize));
   return {
     rank,
     finished,
     time: player.finishTime ?? state.time,
     prize,
-    fishCoins,
+    fishCoins: fishCoins(state),
     caught: [...state.caught],
+    perks: state.perks,
     standings: order.map((r) => ({ name: r.name, isPlayer: r.isPlayer, time: r.finishTime })),
   };
 }

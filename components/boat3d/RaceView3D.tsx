@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { RaceScreenProps } from "@/components/boat/BoatApp";
 import CatchBanner from "@/components/boat/CatchBanner";
-import { FISH, LAPS, TIME_LIMIT, TRACK_HALF, createRace, legendCatchActive, raceResult, standings, updateRace, type RaceState } from "@/lib/boat/race";
+import { FISH, LAPS, TIME_LIMIT, TRACK_HALF, createRace, fishCoins, fishValue, legendCatchActive, raceResult, standings, updateRace, type RaceState } from "@/lib/boat/race";
 import {
   PLAYER_STYLE, RIVAL_STYLES, createFish, createGate, createIsland, createJetSki, createSuperyacht,
   disposeObject,
@@ -24,7 +24,7 @@ interface Hud {
   speed: number;
   fishCoins: number;
   canFish: boolean;
-  legend: boolean;
+  legend: number; // 기념 컷에 띄울 금액 (0이면 숨김)
   message: string;
 }
 
@@ -35,9 +35,9 @@ function toHud(s: RaceState, canFish: boolean): Hud {
     lap: Math.min(p.lap + 1, LAPS),
     rank: standings(s).indexOf(p) + 1,
     speed: p.speed,
-    fishCoins: s.caught.reduce((sum, i) => sum + FISH[i].value, 0),
+    fishCoins: fishCoins(s),
     canFish,
-    legend: legendCatchActive(s),
+    legend: legendCatchActive(s) ? fishValue(s, FISH.length - 1) : 0,
     message: s.messageTimer > 0 ? s.message : "",
   };
 }
@@ -124,7 +124,7 @@ function mulberry(seed: number) {
   };
 }
 
-export default function RaceView3D({ stats, onFinish }: RaceScreenProps) {
+export default function RaceView3D({ stats, perks, onFinish }: RaceScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const miniRef = useRef<HTMLCanvasElement>(null);
   const touchRef = useRef({ gas: false, brake: false, left: false, right: false, fish: false });
@@ -154,7 +154,7 @@ export default function RaceView3D({ stats, onFinish }: RaceScreenProps) {
     sun.position.copy(SUN_DIR).multiplyScalar(300);
     scene.add(sun);
 
-    const state = createRace(Math.random, stats);
+    const state = createRace(Math.random, stats, perks);
     const rand = mulberry(7);
     const waveAt = (x: number, z: number, t: number) => waveHeight(x, z, t, 1, 0.35);
 
@@ -468,7 +468,7 @@ export default function RaceView3D({ stats, onFinish }: RaceScreenProps) {
       scene.environment?.dispose();
       renderer.dispose();
     };
-  }, [onFinish, stats]);
+  }, [onFinish, stats, perks]);
 
   const hold = (k: TouchKey) => ({
     onPointerDown: (e: React.PointerEvent) => {
@@ -531,7 +531,7 @@ export default function RaceView3D({ stats, onFinish }: RaceScreenProps) {
           GO!
         </div>
       )}
-      <CatchBanner show={hud.legend} />
+      <CatchBanner value={hud.legend} />
       {hud.message && (
         <div className="pointer-events-none absolute left-1/2 top-24 -translate-x-1/2 rounded-full bg-white/90 px-5 py-2 text-lg font-bold text-sky-900 shadow">
           {hud.message}
