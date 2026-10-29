@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { BASE_STATS, NO_PERKS } from "./race";
 import {
   CATALOG, GRID_W, PERK_CAPS, RECLAIM_COST, UPGRADES, applyRaceReward, buyUpgrade, createSave, level, loadSave,
-  luxury, perkLabel, place, playerStats, racePerks, reclaim, sell,
+  applyBestRun, luxury, perkLabel, place, playerStats, racePerks, reclaim, sell,
 } from "./paradise";
 
 const idx = (x: number, y: number) => y * GRID_W + x;
@@ -95,8 +95,9 @@ describe("yacht paradise", () => {
     delete v1.upgrades;
     const loaded = loadSave(JSON.stringify(v1));
     expect(loaded.money).toBe(1234);
-    expect(loaded.version).toBe(2);
+    expect(loaded.version).toBe(3);
     expect(loaded.upgrades).toEqual({ engine: 0, handling: 0, net: 0 });
+    expect(loaded.bestRun).toBeNull();
   });
 
   it("시설이 없으면 레이스 효과도 없다", () => {
@@ -131,5 +132,25 @@ describe("yacht paradise", () => {
     expect(perkLabel({ prize: 0.1 })).toBe("상금 +10%");
     expect(perkLabel({ startSpeed: 12 })).toBe("출발 대시 +43km/h");
     expect(perkLabel({})).toBe("");
+  });
+
+  it("v2 저장본은 베스트 기록 없이 이어서 불러온다", () => {
+    const v3 = createSave();
+    v3.money = 777;
+    const v2: Record<string, unknown> = { ...v3, version: 2 };
+    delete v2.bestRun;
+    const loaded = loadSave(JSON.stringify(v2));
+    expect(loaded).toMatchObject({ version: 3, money: 777, bestRun: null });
+  });
+
+  it("더 빠른 완주 기록만 베스트로 남는다", () => {
+    const s = createSave();
+    const run = (time: number) => ({ time, dt: 0.2, points: [0, 0, 0], splits: [] });
+    expect(applyBestRun(s, null)).toBe(false);
+    expect(applyBestRun(s, run(100))).toBe(true);
+    expect(applyBestRun(s, run(105))).toBe(false);
+    expect(applyBestRun(s, run(100))).toBe(false);
+    expect(applyBestRun(s, run(97.5))).toBe(true);
+    expect(s.bestRun?.time).toBe(97.5);
   });
 });

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { FISH, type PlayerStats, type RacePerks, type RaceResult } from "@/lib/boat/race";
-import { applyRaceReward, loadSave, playerStats, racePerks, type Save } from "@/lib/boat/paradise";
+import { formatTime, type GhostRun } from "@/lib/boat/ghost";
+import { applyBestRun, applyRaceReward, loadSave, playerStats, racePerks, type Save } from "@/lib/boat/paradise";
 import { ART, artBg } from "@/lib/boat/art";
 import ParadiseView, { type BoardProps } from "./ParadiseView";
 import RaceView from "./RaceView";
@@ -12,7 +13,7 @@ const SAVE_KEY = "yacht-paradise-save";
 type Screen =
   | { kind: "title" }
   | { kind: "paradise" }
-  | { kind: "race"; stats: PlayerStats; perks: RacePerks } // 출전 시점의 능력치·시설 효과로 고정
+  | { kind: "race"; stats: PlayerStats; perks: RacePerks; ghost: GhostRun | null } // 출전 시점 기준으로 고정
   | { kind: "result"; result: RaceResult };
 
 function readSave(): Save {
@@ -34,6 +35,7 @@ function writeSave(s: Save) {
 export interface RaceScreenProps {
   stats: PlayerStats;
   perks: RacePerks;
+  ghost: GhostRun | null;
   onFinish: (r: RaceResult) => void;
 }
 
@@ -54,6 +56,7 @@ export default function BoatApp({
     setSave((prev) => {
       const next = structuredClone(prev);
       applyRaceReward(next, result.rank, result.prize, result.fishCoins, result.caught.length);
+      applyBestRun(next, result.run);
       return next;
     });
     setScreen({ kind: "result", result });
@@ -66,11 +69,11 @@ export default function BoatApp({
         <ParadiseView
           save={save}
           onChange={setSave}
-          onRace={() => setScreen({ kind: "race", stats: playerStats(save), perks: racePerks(save) })}
+          onRace={() => setScreen({ kind: "race", stats: playerStats(save), perks: racePerks(save), ghost: save.bestRun })}
           board={board}
         />
       )}
-      {screen.kind === "race" && <Race stats={screen.stats} perks={screen.perks} onFinish={finishRace} />}
+      {screen.kind === "race" && <Race stats={screen.stats} perks={screen.perks} ghost={screen.ghost} onFinish={finishRace} />}
       {screen.kind === "result" && (
         <ResultView result={screen.result} onBack={() => setScreen({ kind: "paradise" })} />
       )}
@@ -104,6 +107,19 @@ function TitleView({ save, onStart }: { save: Save; onStart: () => void }) {
   );
 }
 
+// 베스트 기록(고스트)과 비교한 이번 완주
+function RecordLine({ result }: { result: RaceResult }) {
+  if (!result.run) return null;
+  const best = result.bestBefore;
+  const [text, tone] =
+    best === null
+      ? ["👻 첫 완주 기록 저장! 다음 레이스부터 고스트로 함께 달린다", "bg-sky-100 text-sky-800"]
+      : result.run.time < best
+        ? [`👻 신기록! ${formatTime(best)} → ${formatTime(result.run.time)}`, "bg-emerald-100 text-emerald-800"]
+        : [`👻 베스트까지 +${(result.run.time - best).toFixed(1)}초`, "bg-slate-100 text-slate-700"];
+  return <div className={`mt-2 rounded-lg px-3 py-1.5 text-sm font-bold ${tone}`}>{text}</div>;
+}
+
 // 시설 효과로 붙은 보너스 표시
 function BonusTag({ value }: { value: number }) {
   return (
@@ -128,6 +144,7 @@ function ResultView({ result, onBack }: { result: RaceResult; onBack: () => void
           <div className="text-sm text-sky-600">{result.finished ? "완주" : "시간 초과 · 상금 50%"}</div>
           <div className="text-5xl font-black">{result.rank}위</div>
           <div className="text-sm text-sky-600 tabular-nums">{result.time.toFixed(1)}초</div>
+          <RecordLine result={result} />
         </div>
         <ol className="space-y-1 px-6 text-sm">
           {result.standings.map((s, i) => (

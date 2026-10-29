@@ -1,6 +1,8 @@
 // 수상스키 랩 레이스 로직. 렌더링과 분리된 순수 로직이라 테스트할 수 있다.
 // 좌표 단위는 미터. 부표(체크포인트)를 순서대로 통과해 3바퀴를 돌면 완주.
 
+import { GHOST_DT, createRecording, recordSample, recordSplit, type GhostRun, type Recording } from "./ghost";
+
 export const LAPS = 3;
 export const TIME_LIMIT = 180;
 export const COUNTDOWN = 3;
@@ -85,6 +87,8 @@ export interface RaceInput {
 export interface RaceState {
   stats: PlayerStats;
   perks: RacePerks;
+  ghost: GhostRun | null; // 함께 달릴 베스트 기록
+  recording: Recording; // 이번 레이스의 플레이어 주행 기록
   time: number; // 출발 신호 이후 경과 시간 (카운트다운 중엔 음수)
   course: Point[];
   boostPads: Point[];
@@ -107,6 +111,8 @@ export interface RaceResult {
   fishCoins: number;
   caught: number[];
   perks: RacePerks;
+  run: GhostRun | null; // 완주했을 때만 남는 이번 주행 기록
+  bestBefore: number | null; // 이번 레이스 전의 베스트 기록
   standings: { name: string; isPlayer: boolean; time: number | null }[];
 }
 
@@ -131,6 +137,7 @@ export function createRace(
   rand: () => number = Math.random,
   stats: PlayerStats = BASE_STATS,
   perks: RacePerks = NO_PERKS,
+  ghost: GhostRun | null = null,
 ): RaceState {
   const course = createCourse();
   const start = course[0];
@@ -167,6 +174,8 @@ export function createRace(
   return {
     stats,
     perks,
+    ghost,
+    recording: createRecording(),
     time: -COUNTDOWN,
     course,
     boostPads,
@@ -247,6 +256,7 @@ export function updateRace(state: RaceState, dt: number, input: RaceInput, rand:
     checkpoints(state, r);
   }
 
+  if (player.finishTime === null) recordSample(state.recording, state.time, player.x, player.y, player.heading);
   updateFish(state, dt, rand);
   if (input.fish) tryCatch(state, player);
 
@@ -295,6 +305,7 @@ function checkpoints(state: RaceState, r: Racer) {
   if (r.finishTime !== null) return;
   const cp = state.course[r.next];
   if (Math.hypot(cp.x - r.x, cp.y - r.y) > CHECKPOINT_RADIUS) return;
+  if (r.isPlayer) recordSplit(state.recording, state.time);
   if (r.next === 0) {
     r.lap += 1;
     if (r.lap >= LAPS) {
@@ -368,6 +379,21 @@ export function fishCoins(state: RaceState) {
   return state.caught.reduce((sum, i) => sum + fishValue(state, i), 0);
 }
 
+// 가장 최근에 지난 체크포인트에서 베스트 기록과의 차이 (음수면 더 빠름)
+export function splitInfo(state: RaceState) {
+  const mine = state.recording.splits;
+  const k = mine.length - 1;
+  const best = state.ghost?.splits[k];
+  if (k < 0 || best === undefined) return null;
+  return { delta: Math.round((mine[k] - best) * 100) / 100, at: mine[k] };
+}
+
+// HUD에 띄울 구간 차이: 게이트를 지난 직후 잠깐만 보여준다
+export function splitNow(state: RaceState) {
+  const s = splitInfo(state);
+  return s && state.time - s.at < 3 ? s.delta : null;
+}
+
 export const LEGEND_SHOW_SECONDS = 2.5;
 
 // 가장 희귀한 물고기를 방금 낚았는지 (화면에 기념 컷을 띄울 때 쓴다)
@@ -390,6 +416,10 @@ export function raceResult(state: RaceState): RaceResult {
     fishCoins: fishCoins(state),
     caught: [...state.caught],
     perks: state.perks,
+    run: finished
+      ? { time: Math.round(player.finishTime! * 100) / 100, dt: GHOST_DT, points: [...state.recording.points], splits: [...state.recording.splits] }
+      : null,
+    bestBefore: state.ghost?.time ?? null,
     standings: order.map((r) => ({ name: r.name, isPlayer: r.isPlayer, time: r.finishTime })),
   };
 }

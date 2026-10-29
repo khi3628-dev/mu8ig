@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { ART, artBg } from "@/lib/boat/art";
+import { formatTime } from "@/lib/boat/ghost";
 import {
   CATALOG, GRID_W, ITEM_PERKS, PERK_CAPS, RECLAIM_COST, UPGRADES, buyUpgrade, level, luxury, perkLabel, place,
   racePerks, reclaim, sell, upgradeCost,
@@ -74,6 +75,7 @@ export default function ParadiseView({
             <div className="text-3xl font-black tabular-nums text-amber-300">💰 {save.money.toLocaleString()}</div>
             <div className="text-xs text-sky-200">
               레이스 {save.races}회 · 최고 {save.bestRank ? `${save.bestRank}위` : "-"} · 물고기 {save.fishCaught}마리
+              {save.bestRun && <> · 👻 {formatTime(save.bestRun.time)}</>}
             </div>
           </div>
         </div>

@@ -3,9 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import {
   FISH, LAPS, TIME_LIMIT, TRACK_HALF, createRace, fishCoins, fishValue, legendCatchActive, raceResult, standings, updateRace,
+  splitNow,
   type PlayerStats, type RacePerks, type RaceResult, type RaceState, type Racer,
 } from "@/lib/boat/race";
+import { formatTime, ghostPose, type GhostRun } from "@/lib/boat/ghost";
 import CatchBanner from "./CatchBanner";
+import SplitBadge from "./SplitBadge";
 
 const PX = 3; // 1미터당 픽셀
 
@@ -16,6 +19,8 @@ interface Hud {
   speed: number;
   fishCoins: number;
   legend: number; // 기념 컷에 띄울 금액 (0이면 숨김)
+  best: number | null; // 베스트 기록 (고스트가 있을 때)
+  split: number | null; // 방금 지난 게이트에서 베스트와의 차이
   message: string;
 }
 
@@ -28,6 +33,8 @@ function toHud(s: RaceState): Hud {
     speed: p.speed,
     fishCoins: fishCoins(s),
     legend: legendCatchActive(s) ? fishValue(s, FISH.length - 1) : 0,
+    best: s.ghost?.time ?? null,
+    split: splitNow(s),
     message: s.messageTimer > 0 ? s.message : "",
   };
 }
@@ -37,10 +44,12 @@ type TouchKey = "gas" | "brake" | "left" | "right";
 export default function RaceView({
   stats,
   perks,
+  ghost,
   onFinish,
 }: {
   stats: PlayerStats;
   perks: RacePerks;
+  ghost: GhostRun | null;
   onFinish: (r: RaceResult) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -50,7 +59,7 @@ export default function RaceView({
   useEffect(() => {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
-    const state = createRace(Math.random, stats, perks);
+    const state = createRace(Math.random, stats, perks, ghost);
     const trails = state.racers.map(() => [] as { x: number; y: number }[]);
     const keys = new Set<string>();
     let fishPressed = false;
@@ -118,7 +127,7 @@ export default function RaceView({
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("resize", onResize);
     };
-  }, [onFinish, stats, perks]);
+  }, [onFinish, stats, perks, ghost]);
 
   // 터치 버튼: 누르는 동안만 입력이 켜진다
   const hold = (k: TouchKey) => ({
@@ -144,6 +153,7 @@ export default function RaceView({
         <div className={`text-sm tabular-nums ${remaining < 30 ? "text-red-300" : ""}`}>남은 시간 {mm}:{ss}</div>
         <div className="text-sm tabular-nums">{Math.round(hud.speed * 3.6)} km/h</div>
         <div className="text-sm">🎣 낚시 +{hud.fishCoins}</div>
+        {hud.best !== null && <div className="text-sm text-sky-200">👻 베스트 {formatTime(hud.best)}</div>}
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-black/45 px-3 py-2 text-xs leading-5 text-white pointer-coarse:hidden">
@@ -175,6 +185,7 @@ export default function RaceView({
           GO!
         </div>
       )}
+      <SplitBadge delta={hud.split} />
       <CatchBanner value={hud.legend} />
       {hud.message && (
         <div className="pointer-events-none absolute left-1/2 top-24 -translate-x-1/2 rounded-full bg-white/90 px-5 py-2 text-lg font-bold text-sky-900 shadow">
@@ -310,6 +321,13 @@ function draw(
   });
 
   // 레이서 (플레이어를 맨 위에)
+  // 베스트 기록 고스트 (반투명)
+  if (s.ghost) {
+    const g = ghostPose(s.ghost, Math.max(0, s.time));
+    ctx.globalAlpha = 0.4;
+    drawRacer(ctx, { ...s.racers[0], name: "베스트", color: "#7dd3fc", isPlayer: false, heading: g.heading, boost: 0 }, sx(g.x), sy(g.y));
+    ctx.globalAlpha = 1;
+  }
   for (const r of [...s.racers].reverse()) drawRacer(ctx, r, sx(r.x), sy(r.y));
 
   drawMinimap(ctx, s);

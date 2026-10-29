@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { RaceScreenProps } from "@/components/boat/BoatApp";
 import CatchBanner from "@/components/boat/CatchBanner";
-import { FISH, LAPS, TIME_LIMIT, TRACK_HALF, createRace, fishCoins, fishValue, legendCatchActive, raceResult, standings, updateRace, type RaceState } from "@/lib/boat/race";
+import SplitBadge from "@/components/boat/SplitBadge";
+import { formatTime, ghostPose } from "@/lib/boat/ghost";
+import { FISH, LAPS, TIME_LIMIT, TRACK_HALF, createRace, fishCoins, fishValue, legendCatchActive, raceResult, splitNow, standings, updateRace, type RaceState } from "@/lib/boat/race";
 import {
   PLAYER_STYLE, RIVAL_STYLES, createFish, createGate, createIsland, createJetSki, createSuperyacht,
   disposeObject,
@@ -25,6 +27,8 @@ interface Hud {
   fishCoins: number;
   canFish: boolean;
   legend: number; // 기념 컷에 띄울 금액 (0이면 숨김)
+  best: number | null; // 베스트 기록 (고스트가 있을 때)
+  split: number | null; // 방금 지난 게이트에서 베스트와의 차이
   message: string;
 }
 
@@ -38,6 +42,8 @@ function toHud(s: RaceState, canFish: boolean): Hud {
     fishCoins: fishCoins(s),
     canFish,
     legend: legendCatchActive(s) ? fishValue(s, FISH.length - 1) : 0,
+    best: s.ghost?.time ?? null,
+    split: splitNow(s),
     message: s.messageTimer > 0 ? s.message : "",
   };
 }
@@ -124,7 +130,7 @@ function mulberry(seed: number) {
   };
 }
 
-export default function RaceView3D({ stats, perks, onFinish }: RaceScreenProps) {
+export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const miniRef = useRef<HTMLCanvasElement>(null);
   const touchRef = useRef({ gas: false, brake: false, left: false, right: false, fish: false });
@@ -154,7 +160,7 @@ export default function RaceView3D({ stats, perks, onFinish }: RaceScreenProps) 
     sun.position.copy(SUN_DIR).multiplyScalar(300);
     scene.add(sun);
 
-    const state = createRace(Math.random, stats, perks);
+    const state = createRace(Math.random, stats, perks, ghost);
     const rand = mulberry(7);
     const waveAt = (x: number, z: number, t: number) => waveHeight(x, z, t, 1, 0.35);
 
@@ -228,6 +234,21 @@ export default function RaceView3D({ stats, perks, onFinish }: RaceScreenProps) 
       scene.add(s.group);
       return { ...s, tag, roll: 0, prevHeading: r.heading, acc: 0 };
     });
+
+    // 베스트 기록 고스트: 같은 제트스키를 반투명 하늘색으로
+    let ghostSki: THREE.Group | null = null;
+    if (state.ghost) {
+      ghostSki = createJetSki(PLAYER_STYLE).group;
+      const ghostMat = new THREE.MeshBasicMaterial({ color: 0x9be7ff, transparent: true, opacity: 0.35, depthWrite: false });
+      ghostSki.traverse((o) => {
+        if (o instanceof THREE.Mesh) o.material = ghostMat;
+      });
+      ghostSki.scale.setScalar(1.5);
+      const tag = nameTag("베스트");
+      tag.position.set(0, 2.9, 0);
+      ghostSki.add(tag);
+      scene.add(ghostSki);
+    }
 
     // 물보라 (링 버퍼 파티클)
     const N = 1400;
@@ -426,6 +447,12 @@ export default function RaceView3D({ stats, perks, onFinish }: RaceScreenProps) 
         (r.material as THREE.MeshBasicMaterial).color.setHex(near ? 0xffd23a : 0xffffff);
       });
 
+      if (ghostSki && state.ghost) {
+        const g = ghostPose(state.ghost, Math.max(0, state.time));
+        ghostSki.position.set(g.x, waveAt(g.x, g.y, t) + 0.15, g.y);
+        ghostSki.rotation.y = -g.heading;
+      }
+
       // 추적 카메라
       camHeading += angleDiff(p0.heading, camHeading) * (1 - Math.exp(-4 * dt));
       const cx = Math.cos(camHeading), cz = Math.sin(camHeading);
@@ -468,7 +495,7 @@ export default function RaceView3D({ stats, perks, onFinish }: RaceScreenProps) 
       scene.environment?.dispose();
       renderer.dispose();
     };
-  }, [onFinish, stats, perks]);
+  }, [onFinish, stats, perks, ghost]);
 
   const hold = (k: TouchKey) => ({
     onPointerDown: (e: React.PointerEvent) => {
@@ -494,6 +521,7 @@ export default function RaceView3D({ stats, perks, onFinish }: RaceScreenProps) 
         <div className={`text-sm tabular-nums ${remaining < 30 ? "text-red-300" : ""}`}>남은 시간 {mm}:{ss}</div>
         <div className="text-sm tabular-nums">{Math.round(hud.speed * 3.6)} km/h</div>
         <div className="text-sm">🎣 낚시 +{hud.fishCoins}</div>
+        {hud.best !== null && <div className="text-sm text-sky-200">👻 베스트 {formatTime(hud.best)}</div>}
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-black/45 px-3 py-2 text-xs leading-5 text-white pointer-coarse:hidden">
@@ -531,6 +559,7 @@ export default function RaceView3D({ stats, perks, onFinish }: RaceScreenProps) 
           GO!
         </div>
       )}
+      <SplitBadge delta={hud.split} />
       <CatchBanner value={hud.legend} />
       {hud.message && (
         <div className="pointer-events-none absolute left-1/2 top-24 -translate-x-1/2 rounded-full bg-white/90 px-5 py-2 text-lg font-bold text-sky-900 shadow">

@@ -1,11 +1,12 @@
 // 요트 파라다이스: 레이스·낚시로 번 돈으로 섬과 마리나에 시설을 짓는다.
 // 진행 상황은 이 객체 하나로 직렬화해 저장한다.
 
+import type { GhostRun } from "./ghost";
 import { BASE_STATS, NO_PERKS, type PlayerStats, type RacePerks } from "./race";
 
 export const GRID_W = 10;
 export const GRID_H = 8;
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 export const SELL_RATE = 0.5;
 
 export type Terrain = "water" | "sand";
@@ -107,6 +108,7 @@ export interface Save {
   races: number;
   bestRank: number | null;
   fishCaught: number;
+  bestRun: GhostRun | null; // 가장 빠른 완주 기록 (고스트로 재생)
 }
 
 export function createSave(): Save {
@@ -125,6 +127,7 @@ export function createSave(): Save {
     races: 0,
     bestRank: null,
     fishCaught: 0,
+    bestRun: null,
   };
 }
 
@@ -137,6 +140,11 @@ export function loadSave(raw: string | null): Save {
       // v1 → v2: 업그레이드 필드 추가
       s.version = 2;
       s.upgrades = { engine: 0, handling: 0, net: 0 };
+    }
+    if (s.version === 2) {
+      // v2 → v3: 베스트 주행 기록 추가
+      s.version = 3;
+      s.bestRun = null;
     }
     if (s.version !== SAVE_VERSION) return createSave();
     return s;
@@ -221,6 +229,13 @@ export function applyRaceReward(save: Save, rank: number, prize: number, fishCoi
   save.races += 1;
   save.fishCaught += fishCount;
   save.bestRank = save.bestRank === null ? rank : Math.min(save.bestRank, rank);
+}
+
+// 더 빠른 완주 기록이면 베스트로 바꾸고 true를 돌려준다
+export function applyBestRun(save: Save, run: GhostRun | null) {
+  if (!run || (save.bestRun && save.bestRun.time <= run.time)) return false;
+  save.bestRun = run;
+  return true;
 }
 
 export function upgradeCost(save: Save, id: UpgradeId): number | null {
