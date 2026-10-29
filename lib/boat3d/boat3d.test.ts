@@ -75,16 +75,17 @@ describe("통통 튀는 연출", () => {
     return { airRatio: (air * dt) / seconds, lands, below };
   };
 
-  it("멈추거나 느릴 때는 수면에 붙어 있다", () => {
+  it("멈춰 있으면 튀지 않고 물에 떠 있다", () => {
     expect(ride(0)).toMatchObject({ airRatio: 0, lands: 0 });
-    expect(ride(8)).toMatchObject({ airRatio: 0, lands: 0 });
   });
 
-  it("최고 속도에서는 파도를 넘으며 자주 튀고, 착수 충격을 알려준다", () => {
-    const r = ride(30);
-    expect(r.lands).toBeGreaterThan(10);
-    expect(r.airRatio).toBeGreaterThan(0.2);
-    expect(r.airRatio).toBeLessThan(0.7);
+  it("보통 속도부터 파도 리듬에 맞춰 계속 통통 튄다", () => {
+    const mid = ride(20, 20);
+    expect(mid.lands / 20).toBeGreaterThan(1.5); // 착수 충격이 있는 튐만 세서 초당 1.5번 이상
+    const top = ride(30, 20);
+    expect(top.lands / 20).toBeGreaterThan(1.5);
+    expect(top.airRatio).toBeGreaterThan(0.5);
+    expect(top.airRatio).toBeLessThan(0.95); // 계속 떠 있지는 않고 착수한다
   });
 
   it("어떤 속도에서도 수면 아래로 파고들지 않는다", () => {
