@@ -64,6 +64,7 @@ export interface Racer {
 
 export interface FishSpecies { name: string; emoji: string; value: number; weight: number }
 
+// emoji는 2D 버전이 물 위에 그리는 물고기 그림 (화면 문구에는 쓰지 않는다)
 export const FISH: FishSpecies[] = [
   { name: "정어리", emoji: "🐟", value: 30, weight: 50 },
   { name: "고등어", emoji: "🐠", value: 60, weight: 30 },
@@ -252,7 +253,7 @@ export function updateRace(state: RaceState, dt: number, input: RaceInput, rand:
     r.slow = Math.max(0, r.slow - dt);
     for (const pad of state.boostPads) {
       if (Math.hypot(pad.x - r.x, pad.y - r.y) < BOOST_RADIUS) {
-        if (r.isPlayer && r.boost === 0) say(state, "파도 부스트!");
+        if (r.isPlayer && r.boost === 0) say(state, "BOOST");
         r.boost = BOOST_TIME * (r.isPlayer ? 1 + state.perks.boost : 1);
       }
     }
@@ -320,10 +321,10 @@ function checkpoints(state: RaceState, r: Racer) {
     r.lap += 1;
     if (r.lap >= LAPS) {
       r.finishTime = state.time;
-      if (r.isPlayer) say(state, "완주!");
+      if (r.isPlayer) say(state, "FINISH");
       return;
     }
-    if (r.isPlayer) say(state, r.lap === LAPS - 1 ? "마지막 바퀴!" : `${r.lap + 1}바퀴째`);
+    if (r.isPlayer) say(state, r.lap === LAPS - 1 ? "FINAL LAP" : `LAP ${r.lap + 1}`);
   }
   r.next = (r.next + 1) % state.course.length;
 }
@@ -362,6 +363,8 @@ function updateFish(state: RaceState, dt: number, rand: () => number) {
   });
 }
 
+export const MISS_MESSAGE = "MISS";
+
 // 근처에서 뛰어오른 물고기를 낚아챈다. 대신 잠깐 감속한다 (레이스 vs 낚시의 트레이드오프)
 export function tryCatch(state: RaceState, player: Racer) {
   if (state.time < 0 || player.finishTime !== null) return;
@@ -370,7 +373,7 @@ export function tryCatch(state: RaceState, player: Racer) {
     .filter(({ d }) => d <= state.stats.catchRadius)
     .sort((a, b) => a.d - b.d)[0];
   if (!near) {
-    say(state, "허탕!");
+    say(state, MISS_MESSAGE);
     return;
   }
   state.fish = state.fish.filter((f) => f !== near.f);
@@ -378,7 +381,7 @@ export function tryCatch(state: RaceState, player: Racer) {
   state.lastCatch = { species: near.f.species, at: state.time };
   player.slow = CATCH_SLOW_TIME;
   const s = FISH[near.f.species];
-  say(state, `${s.emoji} ${s.name} 낚았다! +${fishValue(state, near.f.species)}`);
+  say(state, `${s.name} +${fishValue(state, near.f.species)}`);
 }
 
 export function fishValue(state: RaceState, species: number) {

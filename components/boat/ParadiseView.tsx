@@ -72,10 +72,11 @@ export default function ParadiseView({
             </div>
           </div>
           <div className="text-right">
-            <div className="text-3xl font-black tabular-nums text-amber-300">💰 {save.money.toLocaleString()}</div>
-            <div className="text-xs text-sky-200">
-              레이스 {save.races}회 · 최고 {save.bestRank ? `${save.bestRank}위` : "-"} · 물고기 {save.fishCaught}마리
-              {save.bestRun && <> · 👻 {formatTime(save.bestRun.time)}</>}
+            <div className="text-[10px] font-bold tracking-[0.3em] text-sky-200">CREDITS</div>
+            <div className="text-3xl font-black italic tabular-nums text-amber-300">{save.money.toLocaleString()}</div>
+            <div className="text-[11px] tracking-wide text-sky-200">
+              RACES {save.races} · BEST {save.bestRank ? `P${save.bestRank}` : "-"} · FISH {save.fishCaught}
+              {save.bestRun && <> · LAP REC {formatTime(save.bestRun.time)}</>}
             </div>
           </div>
         </div>
@@ -107,15 +108,15 @@ export default function ParadiseView({
       <div className="w-full space-y-3 md:w-64">
         <button
           onClick={onRace}
-          className="w-full rounded-xl bg-white py-4 text-lg font-black text-sky-900 shadow-lg transition hover:bg-amber-200"
+          className="w-full -skew-x-6 bg-white py-4 text-lg font-black italic tracking-wide text-slate-950 shadow-lg transition hover:bg-amber-200"
         >
-          🏁 레이스 출전
+          RACE · 레이스 출전
         </button>
 
         <PerkPanel save={save} />
 
         <div className="rounded-xl bg-black/30 p-2">
-          <div className="px-1 pb-1 text-xs text-sky-200">수상스키 정비소</div>
+          <div className="px-1 pb-1 text-[11px] font-bold tracking-[0.2em] text-sky-200">GARAGE · 정비소</div>
           <div className="space-y-1">
             {(Object.keys(UPGRADES) as UpgradeId[]).map((id) => {
               const u = UPGRADES[id];
@@ -131,8 +132,12 @@ export default function ParadiseView({
                   }`}
                 >
                   <span>
-                    <span className="font-semibold">{u.emoji} {u.name}</span>
-                    <span className="ml-1 text-amber-300">{"★".repeat(lv)}{"☆".repeat(u.costs.length - lv)}</span>
+                    <span className="font-semibold">{u.name}</span>
+                    <span className="ml-2 inline-flex gap-0.5 align-middle" aria-label={`${lv}/${u.costs.length}단계`}>
+                      {u.costs.map((_, i) => (
+                        <span key={i} className={`h-2 w-3 -skew-x-12 ${i < lv ? "bg-amber-300" : "bg-white/20"}`} />
+                      ))}
+                    </span>
                     <span className="block text-[11px] text-sky-200">{u.desc}</span>
                   </span>
                   <span className="tabular-nums">{cost === null ? "MAX" : cost.toLocaleString()}</span>
@@ -143,7 +148,7 @@ export default function ParadiseView({
         </div>
 
         <div className="rounded-xl bg-black/30 p-2">
-          <div className="px-1 pb-1 text-xs text-sky-200">건설 도구 (선택 후 칸 클릭)</div>
+          <div className="px-1 pb-1 text-[11px] font-bold tracking-[0.2em] text-sky-200">BUILD · 선택 후 칸 클릭</div>
           <div className="space-y-1">
             {(Object.keys(CATALOG) as ItemId[]).map((id) => {
               const d = CATALOG[id];
@@ -153,7 +158,7 @@ export default function ParadiseView({
                   active={tool === id}
                   disabled={save.money < d.cost}
                   onClick={() => setTool(id)}
-                  label={`${d.emoji} ${d.name}`}
+                  label={d.name}
                   sub={[d.on === "sand" ? "섬" : d.needsDock ? "부두 옆" : "바다", `럭셔리 ${d.luxury}`, perkLabel(ITEM_PERKS[id] ?? {})]
                     .filter(Boolean)
                     .join(" · ")}
@@ -165,14 +170,14 @@ export default function ParadiseView({
               active={tool === "reclaim"}
               disabled={save.money < RECLAIM_COST}
               onClick={() => setTool("reclaim")}
-              label="🏝️ 섬 확장"
+              label="섬 확장"
               sub="섬에 붙은 바다를 메움"
               cost={RECLAIM_COST}
             />
             <ToolButton
               active={tool === "sell"}
               onClick={() => setTool("sell")}
-              label="💸 팔기"
+              label="팔기"
               sub="건설비의 50% 환급"
             />
           </div>
@@ -186,15 +191,15 @@ export default function ParadiseView({
 function PerkPanel({ save }: { save: Save }) {
   const p = racePerks(save);
   const rows: { label: string; value: string; on: boolean; max: boolean }[] = [
-    { label: "🏖️ 순위 상금", value: `+${Math.round(p.prize * 100)}%`, on: p.prize > 0, max: p.prize >= PERK_CAPS.prize },
-    { label: "🍹 낚시 코인", value: `+${Math.round(p.fish * 100)}%`, on: p.fish > 0, max: p.fish >= PERK_CAPS.fish },
-    { label: "⛵ 출발 대시", value: `+${Math.round(p.startSpeed * 3.6)}km/h`, on: p.startSpeed > 0, max: p.startSpeed >= PERK_CAPS.startSpeed },
-    { label: "🗼 파도 부스트", value: `+${Math.round(p.boost * 100)}%`, on: p.boost > 0, max: p.boost >= PERK_CAPS.boost },
+    { label: "순위 상금", value: `+${Math.round(p.prize * 100)}%`, on: p.prize > 0, max: p.prize >= PERK_CAPS.prize },
+    { label: "낚시 코인", value: `+${Math.round(p.fish * 100)}%`, on: p.fish > 0, max: p.fish >= PERK_CAPS.fish },
+    { label: "출발 대시", value: `+${Math.round(p.startSpeed * 3.6)}km/h`, on: p.startSpeed > 0, max: p.startSpeed >= PERK_CAPS.startSpeed },
+    { label: "파도 부스트", value: `+${Math.round(p.boost * 100)}%`, on: p.boost > 0, max: p.boost >= PERK_CAPS.boost },
   ];
   const any = rows.some((r) => r.on);
   return (
     <div className="rounded-xl bg-black/30 p-3 text-sm">
-      <div className="pb-1 text-xs text-sky-200">내 섬의 레이스 효과</div>
+      <div className="pb-1 text-[11px] font-bold tracking-[0.2em] text-sky-200">RACE BONUS · 내 섬의 레이스 효과</div>
       <div className="space-y-0.5">
         {rows.map((r) => (
           <div key={r.label} className={`flex justify-between ${r.on ? "" : "opacity-45"}`}>

@@ -152,8 +152,8 @@ export default function RaceView({
         <div className="text-sm">랩 {hud.lap} / {LAPS}</div>
         <div className={`text-sm tabular-nums ${remaining < 30 ? "text-red-300" : ""}`}>남은 시간 {mm}:{ss}</div>
         <div className="text-sm tabular-nums">{Math.round(hud.speed * 3.6)} km/h</div>
-        <div className="text-sm">🎣 낚시 +{hud.fishCoins}</div>
-        {hud.best !== null && <div className="text-sm text-sky-200">👻 베스트 {formatTime(hud.best)}</div>}
+        <div className="text-sm">FISH +{hud.fishCoins}</div>
+        {hud.best !== null && <div className="text-sm text-sky-200">BEST {formatTime(hud.best)}</div>}
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-black/45 px-3 py-2 text-xs leading-5 text-white pointer-coarse:hidden">
@@ -167,7 +167,7 @@ export default function RaceView({
           <TouchButton label="▶" {...hold("right")} />
         </div>
         <div className="flex items-end gap-3">
-          <TouchButton label="🎣" onPointerDown={() => { touchRef.current.fish = true; }} />
+          <TouchButton label="CATCH" onPointerDown={() => { touchRef.current.fish = true; }} />
           <div className="flex flex-col gap-3">
             <TouchButton label="▲" {...hold("gas")} />
             <TouchButton label="▼" {...hold("brake")} />

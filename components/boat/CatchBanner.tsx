@@ -8,8 +8,9 @@ export default function CatchBanner({ value }: { value: number }) {
   return (
     <div className="pointer-events-none absolute right-4 top-1/4 w-44 overflow-hidden rounded-2xl border-2 border-amber-300 bg-black/40 shadow-2xl sm:w-56">
       <div className="aspect-[4/5] w-full bg-cover bg-center" style={artBg(ART.marlin)} />
-      <div className="bg-amber-300 px-3 py-1.5 text-center text-sm font-black text-sky-950">
-        {fish.emoji} {fish.name} +{value}
+      <div className="bg-amber-300 px-3 py-1.5 text-center text-sky-950">
+        <div className="text-[10px] font-black tracking-[0.3em]">LEGENDARY</div>
+        <div className="text-sm font-black italic">{fish.name} +{value}</div>
       </div>
     </div>
   );

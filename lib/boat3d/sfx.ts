@@ -1,5 +1,5 @@
 // 레이스 상태 변화에서 효과음 이벤트를 뽑는다. 소리를 내는 쪽(Web Audio)과 분리해 테스트할 수 있게 한다.
-import { FISH, type RaceState } from "@/lib/boat/race";
+import { FISH, MISS_MESSAGE, type RaceState } from "@/lib/boat/race";
 
 export type SfxEvent =
   | { type: "tick" } // 카운트다운 3·2·1
@@ -44,8 +44,8 @@ export function sfxEvents(prev: SfxSnap, cur: SfxSnap): SfxEvent[] {
   if (cur.count !== prev.count) out.push(cur.count > 0 ? { type: "tick" } : { type: "go" });
   if (cur.boost && !prev.boost) out.push({ type: "boost" });
   if (cur.caught > prev.caught) out.push({ type: "catch", legend: cur.lastSpecies === FISH.length - 1 });
-  // "허탕!" 메시지가 새로 떴을 때 (타이머가 다시 채워짐)
-  if (cur.msg === "허탕!" && cur.msgTimer > prev.msgTimer) out.push({ type: "miss" });
+  // 허탕 메시지가 새로 떴을 때 (타이머가 다시 채워짐)
+  if (cur.msg === MISS_MESSAGE && cur.msgTimer > prev.msgTimer) out.push({ type: "miss" });
   if (cur.splits > prev.splits) {
     if (cur.finished && !prev.finished) out.push({ type: "finish" });
     else if (cur.lap > prev.lap) out.push({ type: "lap" });

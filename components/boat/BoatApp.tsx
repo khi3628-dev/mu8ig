@@ -93,13 +93,13 @@ function TitleView({ save, onStart }: { save: Save; onStart: () => void }) {
         </p>
         <button
           onClick={onStart}
-          className="rounded-full bg-white px-10 py-3 text-lg font-black text-sky-900 shadow-xl transition hover:bg-amber-200"
+          className="-skew-x-12 bg-white px-12 py-3 text-lg font-black italic tracking-wide text-slate-950 shadow-xl transition hover:bg-amber-200"
         >
-          게임 시작
+          <span className="inline-block skew-x-12">START · 게임 시작</span>
         </button>
         {save.races > 0 && (
           <div className="text-xs text-sky-200">
-            💰 {save.money.toLocaleString()} · 레이스 {save.races}회 · 최고 {save.bestRank}위
+            CREDITS {save.money.toLocaleString()} · RACES {save.races} · BEST P{save.bestRank}
           </div>
         )}
       </div>
@@ -111,73 +111,94 @@ function TitleView({ save, onStart }: { save: Save; onStart: () => void }) {
 function RecordLine({ result }: { result: RaceResult }) {
   if (!result.run) return null;
   const best = result.bestBefore;
-  const [text, tone] =
-    best === null
-      ? ["👻 첫 완주 기록 저장! 다음 레이스부터 고스트로 함께 달린다", "bg-sky-100 text-sky-800"]
-      : result.run.time < best
-        ? [`👻 신기록! ${formatTime(best)} → ${formatTime(result.run.time)}`, "bg-emerald-100 text-emerald-800"]
-        : [`👻 베스트까지 +${(result.run.time - best).toFixed(1)}초`, "bg-slate-100 text-slate-700"];
-  return <div className={`mt-2 rounded-lg px-3 py-1.5 text-sm font-bold ${tone}`}>{text}</div>;
+  if (best === null) return <Tag tone="bg-sky-500">FIRST RECORD · 다음 레이스부터 이 기록과 함께 달린다</Tag>;
+  if (result.run.time < best) {
+    return <Tag tone="bg-emerald-500">NEW RECORD · {formatTime(best)} → {formatTime(result.run.time)}</Tag>;
+  }
+  return <Tag tone="bg-white/15">BEST +{(result.run.time - best).toFixed(1)}s</Tag>;
+}
+
+function Tag({ tone, children }: { tone: string; children: React.ReactNode }) {
+  return (
+    <div className={`mt-3 inline-block -skew-x-12 px-3 py-1 ${tone}`}>
+      <div className="skew-x-12 text-xs font-black italic tracking-wide">{children}</div>
+    </div>
+  );
 }
 
 // 시설 효과로 붙은 보너스 표시
 function BonusTag({ value }: { value: number }) {
-  return (
-    <span className="ml-1 rounded bg-amber-100 px-1.5 text-[11px] font-bold text-amber-700">
-      🏝️ +{Math.round(value * 100)}%
-    </span>
-  );
+  return <span className="ml-2 text-[11px] font-bold tracking-wide text-amber-300">ISLAND +{Math.round(value * 100)}%</span>;
 }
+
+const cr = (n: number) => `${n.toLocaleString()} CR`;
 
 function ResultView({ result, onBack }: { result: RaceResult; onBack: () => void }) {
   const counts = new Map<number, number>();
   for (const i of result.caught) counts.set(i, (counts.get(i) ?? 0) + 1);
+  const winnerTime = result.standings[0]?.time ?? null;
+  const status = result.rank === 1 ? "WINNER" : result.finished ? "FINISHED" : "TIME OVER · 상금 50%";
   return (
-    <div className="flex h-full items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-4 overflow-hidden rounded-2xl bg-white pb-6 text-sky-950 shadow-2xl">
+    <div className="flex h-full items-center justify-center bg-slate-950/50 p-4">
+      <div className="w-full max-w-md overflow-hidden rounded-md bg-slate-950/95 pb-5 text-white shadow-2xl ring-1 ring-white/10">
         <div className="relative h-44 w-full bg-cover bg-top" style={artBg(result.rank <= 3 ? ART.podium : ART.ski)}>
-          {result.rank === 1 && (
-            <div className="absolute bottom-2 left-3 rounded-full bg-amber-300 px-3 py-1 text-sm font-black text-sky-950">🏆 우승!</div>
-          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-transparent" />
+          <div className="absolute bottom-3 left-5 flex items-end gap-3">
+            <div className="text-6xl font-black italic leading-none">P{result.rank}</div>
+            <div className={`pb-1 text-xs font-black tracking-[0.25em] ${result.rank === 1 ? "text-amber-300" : "text-white/70"}`}>
+              {status}
+            </div>
+          </div>
+          <div className="absolute bottom-3 right-5 text-right">
+            <div className="text-[10px] font-bold tracking-[0.3em] text-white/60">TIME</div>
+            <div className="text-xl font-black italic tabular-nums">{formatTime(result.time)}</div>
+          </div>
         </div>
-        <div className="px-6 text-center">
-          <div className="text-sm text-sky-600">{result.finished ? "완주" : "시간 초과 · 상금 50%"}</div>
-          <div className="text-5xl font-black">{result.rank}위</div>
-          <div className="text-sm text-sky-600 tabular-nums">{result.time.toFixed(1)}초</div>
+        <div className="px-5">
           <RecordLine result={result} />
         </div>
-        <ol className="space-y-1 px-6 text-sm">
+        <ol className="mt-4 space-y-0.5 px-5 text-sm tabular-nums">
           {result.standings.map((s, i) => (
             <li
               key={s.name}
-              className={`flex justify-between rounded px-3 py-1 ${s.isPlayer ? "bg-sky-100 font-bold" : ""}`}
+              className={`grid grid-cols-[2.5rem_1fr_auto] items-center px-3 py-1 ${
+                s.isPlayer ? "-skew-x-12 bg-amber-300 font-black text-slate-950" : "text-white/85"
+              }`}
             >
-              <span>{i + 1}. {s.name}</span>
-              <span className="tabular-nums">{s.time === null ? "미완주" : `${s.time.toFixed(1)}s`}</span>
+              <span className="italic">P{i + 1}</span>
+              <span>{s.isPlayer ? "YOU" : s.name}</span>
+              <span className="italic">
+                {s.time === null ? "DNF" : i === 0 || winnerTime === null ? formatTime(s.time) : `+${(s.time - winnerTime).toFixed(1)}`}
+              </span>
             </li>
           ))}
         </ol>
-        <div className="mx-6 space-y-1 border-t pt-3 text-sm">
+        <div className="mx-5 mt-4 space-y-1 border-t border-white/10 pt-3 text-sm tabular-nums">
           <div className="flex justify-between">
-            <span>순위 상금{result.perks.prize > 0 && <BonusTag value={result.perks.prize} />}</span>
-            <span className="tabular-nums">💰 {result.prize}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>
-              낚시{result.perks.fish > 0 && <BonusTag value={result.perks.fish} />}{" "}
-              {[...counts].map(([i, n]) => `${FISH[i].emoji}×${n}`).join(" ") || "-"}
+            <span className="text-white/70">
+              PRIZE{result.perks.prize > 0 && <BonusTag value={result.perks.prize} />}
             </span>
-            <span className="tabular-nums">💰 {result.fishCoins}</span>
+            <span>{cr(result.prize)}</span>
           </div>
-          <div className="flex justify-between text-lg font-black">
-            <span>합계</span><span className="tabular-nums">💰 {result.prize + result.fishCoins}</span>
+          <div className="flex justify-between">
+            <span className="text-white/70">
+              FISH{result.perks.fish > 0 && <BonusTag value={result.perks.fish} />}
+              <span className="ml-2 text-xs text-white/50">
+                {[...counts].map(([i, n]) => `${FISH[i].name} ${n}`).join(" · ") || "-"}
+              </span>
+            </span>
+            <span>{cr(result.fishCoins)}</span>
+          </div>
+          <div className="flex justify-between pt-1 text-lg font-black italic">
+            <span>TOTAL</span>
+            <span className="text-amber-300">{cr(result.prize + result.fishCoins)}</span>
           </div>
         </div>
         <button
           onClick={onBack}
-          className="mx-6 w-[calc(100%-3rem)] rounded-xl bg-sky-700 py-3 font-bold text-white hover:bg-sky-800"
+          className="mx-5 mt-4 w-[calc(100%-2.5rem)] -skew-x-12 bg-white py-3 font-black italic tracking-wide text-slate-950 hover:bg-amber-200"
         >
-          파라다이스로 돌아가기
+          <span className="inline-block skew-x-12">CONTINUE · 파라다이스로</span>
         </button>
       </div>
     </div>

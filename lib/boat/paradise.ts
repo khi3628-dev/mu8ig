@@ -16,7 +16,7 @@ export type ItemId =
 
 export interface ItemDef {
   name: string;
-  emoji: string;
+  emoji: string; // 2D 버전 격자에 그리는 아이콘 그림 (화면 문구에는 쓰지 않는다)
   cost: number;
   on: Terrain;
   needsDock?: boolean; // 요트류는 부두 옆에만 정박할 수 있다
@@ -89,15 +89,14 @@ export type UpgradeId = "engine" | "handling" | "net";
 
 export interface UpgradeDef {
   name: string;
-  emoji: string;
   desc: string;
   costs: number[]; // 레벨별 가격. 길이가 최대 레벨
 }
 
 export const UPGRADES: Record<UpgradeId, UpgradeDef> = {
-  engine: { name: "엔진", emoji: "🚀", desc: "최고 속도 +1.5", costs: [400, 800, 1500, 2500, 4000] },
-  handling: { name: "핸들링", emoji: "🌀", desc: "회전력 +10%", costs: [300, 600, 1100, 1800, 3000] },
-  net: { name: "낚시 그물", emoji: "🎣", desc: "낚시 범위 +2m", costs: [250, 500, 900, 1500, 2500] },
+  engine: { name: "엔진", desc: "최고 속도 +1.5", costs: [400, 800, 1500, 2500, 4000] },
+  handling: { name: "핸들링", desc: "회전력 +10%", costs: [300, 600, 1100, 1800, 3000] },
+  net: { name: "낚시 그물", desc: "낚시 범위 +2m", costs: [250, 500, 900, 1500, 2500] },
 };
 
 export interface Save {
