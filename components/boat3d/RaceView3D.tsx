@@ -12,6 +12,8 @@ import {
   disposeObject,
 } from "@/lib/boat3d/models";
 import { chop, createHop, stepHop } from "@/lib/boat3d/bounce";
+import { sfxEvents, sfxSnapshot } from "@/lib/boat3d/sfx";
+import { RaceAudio, readMuted, writeMuted } from "./raceAudio";
 import { boundaryPoints } from "@/lib/boat3d/track";
 import { HORIZON, SUN_DIR, createEnvironment, createSky, createWater, waveHeight } from "@/lib/boat3d/water";
 
@@ -138,6 +140,14 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
   const miniRef = useRef<HTMLCanvasElement>(null);
   const touchRef = useRef({ gas: false, brake: false, left: false, right: false, fish: false, gear: false });
   const [hud, setHud] = useState<Hud>(() => toHud(createRace(), false));
+  const [muted, setMuted] = useState(readMuted);
+  const audioRef = useRef<RaceAudio | null>(null);
+  const toggleMute = () =>
+    setMuted((m) => {
+      audioRef.current?.setMuted(!m);
+      writeMuted(!m);
+      return !m;
+    });
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -291,10 +301,24 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
     const keys = new Set<string>();
     let fishPressed = false;
     let reverse = false; // 기어 R
+    let audio: RaceAudio | null = null;
+    try {
+      audio = new RaceAudio(readMuted());
+    } catch {
+      // Web Audio를 쓸 수 없는 환경이면 소리 없이 진행
+    }
+    audioRef.current = audio;
+    let sfxPrev = { ...sfxSnapshot(state), count: 0 }; // 첫 프레임에 "3" 삐 소리가 나게
+    let throttleOn = false;
     const onKeyDown = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if ((k === " " || k === "f") && !e.repeat) fishPressed = true;
-      if (k === "q" && !e.repeat) reverse = !reverse;
+      audio?.resume();
+      if (k === "q" && !e.repeat) {
+        reverse = !reverse;
+        audio?.play({ type: "gear" });
+      }
+      if (k === "m" && !e.repeat) toggleMute();
       if (k === " " || k.startsWith("arrow")) e.preventDefault();
       keys.add(k);
     };
@@ -328,9 +352,12 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
       if (touch.gear) {
         reverse = !reverse;
         touch.gear = false;
+        audio?.play({ type: "gear" });
       }
+      const throttle = (on("w", "arrowup") || touch.gas ? 1 : 0) - (on("s", "arrowdown") || touch.brake ? 1 : 0);
+      throttleOn = throttle > 0;
       updateRace(state, dt, {
-        throttle: (on("w", "arrowup") || touch.gas ? 1 : 0) - (on("s", "arrowdown") || touch.brake ? 1 : 0),
+        throttle,
         steer: (on("d", "arrowright") || touch.right ? 1 : 0) - (on("a", "arrowleft") || touch.left ? 1 : 0),
         fish: fishPressed || touch.fish,
         reverse,
@@ -376,6 +403,7 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
         if (ski.tag) ski.tag.visible = camera.position.distanceTo(ski.group.position) > 10;
         const nose = Math.atan2(ahead - behind, 3.2) + 0.07 * speedFrac + (ski.hop.airborne ? 0.1 : 0);
         ski.group.rotation.set(0, -r.heading, nose);
+        if (i === 0 && impact > 0.8) audio?.splash(impact);
         if (impact > 2) {
           // 착수 물보라
           for (let k = 0; k < 14; k++) {
@@ -406,6 +434,14 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
           }
         }
       });
+
+      // 소리: 엔진·물살은 매 프레임, 효과음은 상태가 바뀔 때
+      if (audio) {
+        audio.update(Math.min(Math.abs(p0.speed) / 30, 1.3), throttleOn && state.time >= 0, skis[0].hop.airborne);
+        const snap = sfxSnapshot(state);
+        for (const ev of sfxEvents(sfxPrev, snap)) audio.play(ev);
+        sfxPrev = snap;
+      }
 
       // 물보라 갱신
       for (let i = 0; i < N; i++) {
@@ -505,6 +541,8 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
 
     return () => {
       cancelAnimationFrame(raf);
+      audio?.close();
+      audioRef.current = null;
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("resize", onResize);
@@ -538,6 +576,13 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
     <div className="relative h-full w-full">
       <canvas ref={canvasRef} className="h-full w-full" />
       <canvas ref={miniRef} width={160} height={104} className="pointer-events-none absolute right-4 top-4 rounded-lg bg-black/45" />
+      <button
+        onClick={toggleMute}
+        aria-label={muted ? "소리 켜기" : "소리 끄기"}
+        className="absolute right-4 top-32 rounded-full bg-black/45 px-3 py-1.5 text-lg text-white backdrop-blur hover:bg-black/60"
+      >
+        {muted ? "🔇" : "🔊"}
+      </button>
 
       <div className="pointer-events-none absolute left-4 top-4 space-y-1 rounded-xl bg-black/45 px-4 py-3 text-white backdrop-blur">
         <div className="text-3xl font-black tabular-nums">{hud.rank}<span className="text-base font-semibold"> / 6위</span></div>
@@ -555,7 +600,7 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-black/45 px-3 py-2 text-xs leading-5 text-white pointer-coarse:hidden">
-        W/↑ 가속 · S/↓ 감속 · A/D 조향 · Q 기어 D/R<br />
+        W/↑ 가속 · S/↓ 감속 · A/D 조향 · Q 기어 D/R · M 소리<br />
         Space/F 낚시 (뛰어오른 물고기 근처에서)
       </div>
 
