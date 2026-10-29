@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { CATALOG, type ItemId } from "@/lib/boat/paradise";
 import { TRACK_HALF, createCourse } from "@/lib/boat/race";
 import { PLAYER_STYLE, createItemModel, createJetSki } from "./models";
+import { chop, createHop, stepHop } from "./bounce";
 import { boundaryPoints } from "./track";
 import { waveHeight } from "./water";
 
@@ -56,5 +57,37 @@ describe("코스 경계 부표", () => {
         expect(Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y)).toBeGreaterThanOrEqual(14);
       }
     }
+  });
+});
+
+describe("통통 튀는 연출", () => {
+  const ride = (v: number, seconds = 20) => {
+    const h = createHop();
+    const dt = 1 / 60;
+    let air = 0, lands = 0, below = false;
+    for (let i = 0; i < seconds / dt; i++) {
+      const t = i * dt, x = v * t, z = 0.3 * v * t;
+      const surf = waveHeight(x, z, t) + chop(x, z, t);
+      if (stepHop(h, surf, dt, v / 30) > 0) lands++;
+      if (h.airborne) air++;
+      if (h.y < surf - 1e-9) below = true;
+    }
+    return { airRatio: (air * dt) / seconds, lands, below };
+  };
+
+  it("멈추거나 느릴 때는 수면에 붙어 있다", () => {
+    expect(ride(0)).toMatchObject({ airRatio: 0, lands: 0 });
+    expect(ride(8)).toMatchObject({ airRatio: 0, lands: 0 });
+  });
+
+  it("최고 속도에서는 파도를 넘으며 자주 튀고, 착수 충격을 알려준다", () => {
+    const r = ride(30);
+    expect(r.lands).toBeGreaterThan(10);
+    expect(r.airRatio).toBeGreaterThan(0.2);
+    expect(r.airRatio).toBeLessThan(0.7);
+  });
+
+  it("어떤 속도에서도 수면 아래로 파고들지 않는다", () => {
+    for (const v of [0, 15, 30, 45]) expect(ride(v, 10).below).toBe(false);
   });
 });

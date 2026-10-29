@@ -21,6 +21,8 @@ const TURN_RATE = 2.2;
 const BOOST_TIME = 1.5;
 const BOOST_RADIUS = 5;
 const CATCH_SLOW_TIME = 1;
+const REVERSE_SPEED = 7; // 후진 최고 속도 (약 25km/h)
+const REVERSE_ACCEL = 6;
 
 export interface Point { x: number; y: number }
 
@@ -82,6 +84,7 @@ export interface RaceInput {
   throttle: number; // -1..1
   steer: number; // -1..1
   fish: boolean; // 이번 프레임에 낚시 키를 눌렀는지
+  reverse?: boolean; // 기어 R: 가속 키가 뒤로 가속한다
 }
 
 export interface RaceState {
@@ -275,13 +278,20 @@ function approachSpeed(r: Racer, target: number, dt: number) {
   else r.speed = Math.max(target, r.speed - BRAKE * dt);
 }
 
+const towardZero = (v: number, rate: number, dt: number) =>
+  v > 0 ? Math.max(0, v - rate * dt) : Math.min(0, v + rate * dt);
+
 function steerPlayer(state: RaceState, r: Racer, input: RaceInput, dt: number) {
-  const grip = Math.min(1, r.speed / 8) + 0.3;
-  r.heading += input.steer * state.stats.turnRate * grip * dt;
+  const grip = Math.min(1, Math.abs(r.speed) / 8) + 0.3;
+  // 후진 중에는 실제 배처럼 조향이 반대로 먹는다
+  r.heading += input.steer * state.stats.turnRate * grip * dt * (r.speed < 0 ? -1 : 1);
   const max = maxSpeedFor(state, r, r.topSpeed);
-  if (input.throttle > 0) approachSpeed(r, max, dt);
-  else if (input.throttle < 0) r.speed = Math.max(0, r.speed - BRAKE * dt);
-  else r.speed = Math.max(0, r.speed - DRAG * dt);
+  if (input.throttle > 0 && input.reverse) {
+    // 앞으로 달리던 중이면 먼저 멈춘 뒤 뒤로 간다
+    r.speed = r.speed > 0 ? Math.max(0, r.speed - BRAKE * dt) : Math.max(-REVERSE_SPEED, r.speed - REVERSE_ACCEL * dt);
+  } else if (input.throttle > 0) approachSpeed(r, max, dt);
+  else if (input.throttle < 0) r.speed = towardZero(r.speed, BRAKE, dt);
+  else r.speed = towardZero(r.speed, DRAG, dt);
   if (r.speed > max) r.speed = Math.max(max, r.speed - BRAKE * dt);
 }
 

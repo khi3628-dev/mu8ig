@@ -162,4 +162,53 @@ describe("water ski race", () => {
       expect(run(1)).toBeCloseTo(3, 1);
     });
   });
+
+  describe("기어 R (후진)", () => {
+    const rev = { throttle: 1, steer: 0, fish: false, reverse: true };
+
+    it("멈춘 상태에서 R로 가속하면 뒤로 가고, 최고 후진 속도를 넘지 않는다", () => {
+      const s = createRace(() => 0.5);
+      s.time = 0;
+      const p = s.racers[0];
+      const start = { x: p.x, y: p.y };
+      for (let i = 0; i < 100; i++) updateRace(s, 0.05, rev);
+      expect(p.speed).toBeLessThan(0);
+      expect(p.speed).toBeGreaterThanOrEqual(-7);
+      // 진행 방향의 반대쪽으로 움직였다
+      const moved = (p.x - start.x) * Math.cos(p.heading) + (p.y - start.y) * Math.sin(p.heading);
+      expect(moved).toBeLessThan(-10);
+    });
+
+    it("앞으로 달리던 중에 R로 바꾸면 먼저 멈춘 뒤 후진한다", () => {
+      const s = createRace(() => 0.5);
+      s.time = 0;
+      s.boostPads = [];
+      const p = s.racers[0];
+      p.speed = 20;
+      updateRace(s, 0.05, rev);
+      expect(p.speed).toBeGreaterThan(0);
+      expect(p.speed).toBeLessThan(20);
+      for (let i = 0; i < 40; i++) updateRace(s, 0.05, rev);
+      expect(p.speed).toBeLessThan(0);
+    });
+
+    it("후진 중 브레이크·관성은 0을 넘어 튀지 않고 서서히 멈춘다", () => {
+      const s = createRace(() => 0.5);
+      s.time = 0;
+      const p = s.racers[0];
+      p.speed = -6;
+      updateRace(s, 0.05, idle);
+      expect(p.speed).toBeLessThan(0);
+      expect(p.speed).toBeGreaterThan(-6);
+      updateRace(s, 0.05, { ...idle, throttle: -1 });
+      expect(p.speed).toBeLessThanOrEqual(0);
+    });
+
+    it("기어 D(기본)는 기존 동작 그대로 앞으로 간다", () => {
+      const s = createRace(() => 0.5);
+      s.time = 0;
+      for (let i = 0; i < 20; i++) updateRace(s, 0.05, { ...rev, reverse: false });
+      expect(s.racers[0].speed).toBeGreaterThan(0);
+    });
+  });
 });

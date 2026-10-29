@@ -11,6 +11,7 @@ import {
   PLAYER_STYLE, RIVAL_STYLES, createFish, createGate, createIsland, createJetSki, createSuperyacht,
   disposeObject,
 } from "@/lib/boat3d/models";
+import { chop, createHop, stepHop } from "@/lib/boat3d/bounce";
 import { boundaryPoints } from "@/lib/boat3d/track";
 import { HORIZON, SUN_DIR, createEnvironment, createSky, createWater, waveHeight } from "@/lib/boat3d/water";
 
@@ -29,10 +30,11 @@ interface Hud {
   legend: number; // 기념 컷에 띄울 금액 (0이면 숨김)
   best: number | null; // 베스트 기록 (고스트가 있을 때)
   split: number | null; // 방금 지난 게이트에서 베스트와의 차이
+  gear: "D" | "R";
   message: string;
 }
 
-function toHud(s: RaceState, canFish: boolean): Hud {
+function toHud(s: RaceState, canFish: boolean, reverse = false): Hud {
   const p = s.racers[0];
   return {
     time: s.time,
@@ -44,6 +46,7 @@ function toHud(s: RaceState, canFish: boolean): Hud {
     legend: legendCatchActive(s) ? fishValue(s, FISH.length - 1) : 0,
     best: s.ghost?.time ?? null,
     split: splitNow(s),
+    gear: reverse ? "R" : "D",
     message: s.messageTimer > 0 ? s.message : "",
   };
 }
@@ -133,7 +136,7 @@ function mulberry(seed: number) {
 export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const miniRef = useRef<HTMLCanvasElement>(null);
-  const touchRef = useRef({ gas: false, brake: false, left: false, right: false, fish: false });
+  const touchRef = useRef({ gas: false, brake: false, left: false, right: false, fish: false, gear: false });
   const [hud, setHud] = useState<Hud>(() => toHud(createRace(), false));
 
   useEffect(() => {
@@ -232,7 +235,7 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
         s.group.add(tag);
       }
       scene.add(s.group);
-      return { ...s, tag, roll: 0, prevHeading: r.heading, acc: 0 };
+      return { ...s, tag, hop: createHop(), roll: 0, prevHeading: r.heading, acc: 0 };
     });
 
     // 베스트 기록 고스트: 같은 제트스키를 반투명 하늘색으로
@@ -287,9 +290,11 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
     // 입력
     const keys = new Set<string>();
     let fishPressed = false;
+    let reverse = false; // 기어 R
     const onKeyDown = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if ((k === " " || k === "f") && !e.repeat) fishPressed = true;
+      if (k === "q" && !e.repeat) reverse = !reverse;
       if (k === " " || k.startsWith("arrow")) e.preventDefault();
       keys.add(k);
     };
@@ -320,10 +325,15 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
       const t = now / 1000;
       const on = (...ks: string[]) => ks.some((k) => keys.has(k));
       const touch = touchRef.current;
+      if (touch.gear) {
+        reverse = !reverse;
+        touch.gear = false;
+      }
       updateRace(state, dt, {
         throttle: (on("w", "arrowup") || touch.gas ? 1 : 0) - (on("s", "arrowdown") || touch.brake ? 1 : 0),
         steer: (on("d", "arrowright") || touch.right ? 1 : 0) - (on("a", "arrowleft") || touch.left ? 1 : 0),
         fish: fishPressed || touch.fish,
+        reverse,
       });
       fishPressed = false;
       touch.fish = false;
@@ -359,17 +369,31 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
         const dirX = Math.cos(r.heading), dirZ = Math.sin(r.heading);
         const ahead = waveAt(r.x + dirX * 1.6, r.y + dirZ * 1.6, t);
         const behind = waveAt(r.x - dirX * 1.6, r.y - dirZ * 1.6, t);
-        const speedFrac = Math.min(r.speed / 30, 1.3);
-        ski.group.position.set(r.x, waveAt(r.x, r.y, t) + 0.15, r.y);
+        const speedFrac = Math.min(Math.abs(r.speed) / 30, 1.3);
+        // 통통 튀기: 빠르게 파도를 넘으면 떠올랐다가 착수한다
+        const impact = stepHop(ski.hop, waveAt(r.x, r.y, t) + chop(r.x, r.y, t) + 0.15, dt, r.speed / 30);
+        ski.group.position.set(r.x, ski.hop.y, r.y);
         if (ski.tag) ski.tag.visible = camera.position.distanceTo(ski.group.position) > 10;
-        ski.group.rotation.set(0, -r.heading, Math.atan2(ahead - behind, 3.2) + 0.07 * speedFrac);
+        const nose = Math.atan2(ahead - behind, 3.2) + 0.07 * speedFrac + (ski.hop.airborne ? 0.1 : 0);
+        ski.group.rotation.set(0, -r.heading, nose);
+        if (impact > 2) {
+          // 착수 물보라
+          for (let k = 0; k < 14; k++) {
+            const a = Math.random() * Math.PI * 2;
+            emit(
+              r.x + Math.cos(a) * 1.2, 0.3, r.y + Math.sin(a) * 1.2,
+              Math.cos(a) * (2 + Math.random() * 2), 2 + impact * Math.random(), Math.sin(a) * (2 + Math.random() * 2),
+              0.5 + Math.random() * 0.4,
+            );
+          }
+        }
         const yawRate = dt > 0 ? angleDiff(r.heading, ski.prevHeading) / dt : 0;
         ski.prevHeading = r.heading;
         const targetRoll = THREE.MathUtils.clamp(yawRate * 0.25, -0.55, 0.55) * Math.min(speedFrac, 1);
         ski.roll += (targetRoll - ski.roll) * (1 - Math.exp(-6 * dt));
         ski.lean.rotation.x = ski.roll;
 
-        if (r.speed > 4) {
+        if (r.speed > 4 && !ski.hop.airborne) {
           ski.acc += r.speed * (r.isPlayer ? 2.4 : 1.6) * dt * (r.boost > 0 ? 1.8 : 1);
           while (ski.acc >= 1) {
             ski.acc -= 1;
@@ -459,7 +483,7 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
       const intro = Math.max(0, -state.time) / 3;
       camera.position.set(p0.x - cx * (13 + intro * 14), 5.6 + intro * 9, p0.y - cz * (13 + intro * 14));
       camera.lookAt(p0.x + cx * 9, 1.8, p0.y + cz * 9);
-      const fov = 62 + Math.min(p0.speed / 30, 1.3) * 9 + (p0.boost > 0 ? 6 : 0);
+      const fov = 62 + Math.min(Math.abs(p0.speed) / 30, 1.3) * 9 + (p0.boost > 0 ? 6 : 0);
       camera.fov += (fov - camera.fov) * (1 - Math.exp(-5 * dt));
       camera.updateProjectionMatrix();
 
@@ -469,7 +493,7 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
       hudTimer -= dt;
       if (hudTimer <= 0) {
         hudTimer = 0.1;
-        setHud(toHud(state, canFish));
+        setHud(toHud(state, canFish, reverse));
       }
       if (state.done && !finished) {
         finished = true;
@@ -519,13 +543,19 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
         <div className="text-3xl font-black tabular-nums">{hud.rank}<span className="text-base font-semibold"> / 6위</span></div>
         <div className="text-sm">랩 {hud.lap} / {LAPS}</div>
         <div className={`text-sm tabular-nums ${remaining < 30 ? "text-red-300" : ""}`}>남은 시간 {mm}:{ss}</div>
-        <div className="text-sm tabular-nums">{Math.round(hud.speed * 3.6)} km/h</div>
+        <div className="flex items-center gap-2 text-sm tabular-nums">
+          <span>{Math.round(Math.abs(hud.speed) * 3.6)} km/h</span>
+          <span className="flex overflow-hidden rounded border border-white/40 text-xs font-black" aria-label={`기어 ${hud.gear}`}>
+            <span className={hud.gear === "D" ? "bg-emerald-400 px-1.5 text-emerald-950" : "px-1.5 text-white/50"}>D</span>
+            <span className={hud.gear === "R" ? "bg-orange-400 px-1.5 text-orange-950" : "px-1.5 text-white/50"}>R</span>
+          </span>
+        </div>
         <div className="text-sm">🎣 낚시 +{hud.fishCoins}</div>
         {hud.best !== null && <div className="text-sm text-sky-200">👻 베스트 {formatTime(hud.best)}</div>}
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-black/45 px-3 py-2 text-xs leading-5 text-white pointer-coarse:hidden">
-        W/↑ 가속 · S/↓ 감속 · A/D 조향<br />
+        W/↑ 가속 · S/↓ 감속 · A/D 조향 · Q 기어 D/R<br />
         Space/F 낚시 (뛰어오른 물고기 근처에서)
       </div>
 
@@ -541,7 +571,10 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
           <TouchButton label="▶" {...hold("right")} />
         </div>
         <div className="flex items-end gap-3">
-          <TouchButton label="🎣" onPointerDown={() => { touchRef.current.fish = true; }} />
+          <div className="flex flex-col gap-3">
+            <TouchButton label="D/R" onPointerDown={() => { touchRef.current.gear = true; }} />
+            <TouchButton label="🎣" onPointerDown={() => { touchRef.current.fish = true; }} />
+          </div>
           <div className="flex flex-col gap-3">
             <TouchButton label="▲" {...hold("gas")} />
             <TouchButton label="▼" {...hold("brake")} />
