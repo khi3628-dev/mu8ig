@@ -33,6 +33,7 @@ interface Hud {
   best: number | null; // 베스트 기록 (고스트가 있을 때)
   split: number | null; // 방금 지난 게이트에서 베스트와의 차이
   gear: "D" | "R";
+  boost: boolean;
   message: string;
 }
 
@@ -49,6 +50,7 @@ function toHud(s: RaceState, canFish: boolean, reverse = false): Hud {
     best: s.ghost?.time ?? null,
     split: splitNow(s),
     gear: reverse ? "R" : "D",
+    boost: p.boost > 0,
     message: s.messageTimer > 0 ? s.message : "",
   };
 }
@@ -437,7 +439,28 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
 
       // 소리: 엔진·물살은 매 프레임, 효과음은 상태가 바뀔 때
       if (audio) {
-        audio.update(Math.min(Math.abs(p0.speed) / 30, 1.3), throttleOn && state.time >= 0, skis[0].hop.airborne);
+        // 가장 가까운 라이벌: 거리와 서로 다가오는 속도(도플러용)
+        let near: (typeof state.racers)[number] | null = null;
+        let nearD = Infinity;
+        for (const r of state.racers) {
+          const d = Math.hypot(r.x - p0.x, r.y - p0.y);
+          if (!r.isPlayer && d < nearD) [near, nearD] = [r, d];
+        }
+        let rival = null;
+        if (near && nearD > 0.1) {
+          const ux = (p0.x - near.x) / nearD, uy = (p0.y - near.y) / nearD;
+          const closing =
+            (Math.cos(near.heading) * near.speed - Math.cos(p0.heading) * p0.speed) * ux +
+            (Math.sin(near.heading) * near.speed - Math.sin(p0.heading) * p0.speed) * uy;
+          rival = { dist: nearD, closing, speedFrac: near.speed / 30 };
+        }
+        audio.update({
+          speedFrac: Math.min(Math.abs(p0.speed) / 30, 1.3),
+          throttle: throttleOn && state.time >= 0,
+          airborne: skis[0].hop.airborne,
+          boosting: p0.boost > 0,
+          rival,
+        });
         const snap = sfxSnapshot(state);
         for (const ev of sfxEvents(sfxPrev, snap)) audio.play(ev);
         sfxPrev = snap;
@@ -571,42 +594,60 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
   const remaining = Math.max(0, TIME_LIMIT - Math.max(0, hud.time));
   const mm = Math.floor(remaining / 60);
   const ss = Math.floor(remaining % 60).toString().padStart(2, "0");
+  const kmh = Math.round(Math.abs(hud.speed) * 3.6);
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full select-none text-white">
       <canvas ref={canvasRef} className="h-full w-full" />
-      <canvas ref={miniRef} width={160} height={104} className="pointer-events-none absolute right-4 top-4 rounded-lg bg-black/45" />
+      <canvas ref={miniRef} width={160} height={104} className="pointer-events-none absolute right-4 top-4 rounded-md bg-black/55" />
       <button
         onClick={toggleMute}
         aria-label={muted ? "소리 켜기" : "소리 끄기"}
-        className="absolute right-4 top-32 rounded-full bg-black/45 px-3 py-1.5 text-lg text-white backdrop-blur hover:bg-black/60"
+        className="absolute right-4 top-32 -skew-x-12 bg-black/55 px-3 py-1 text-[11px] font-bold tracking-[0.2em] hover:bg-black/70"
       >
-        {muted ? "🔇" : "🔊"}
+        <span className="inline-block skew-x-12">{muted ? "SOUND OFF" : "SOUND ON"}</span>
       </button>
 
-      <div className="pointer-events-none absolute left-4 top-4 space-y-1 rounded-xl bg-black/45 px-4 py-3 text-white backdrop-blur">
-        <div className="text-3xl font-black tabular-nums">{hud.rank}<span className="text-base font-semibold"> / 6위</span></div>
-        <div className="text-sm">랩 {hud.lap} / {LAPS}</div>
-        <div className={`text-sm tabular-nums ${remaining < 30 ? "text-red-300" : ""}`}>남은 시간 {mm}:{ss}</div>
-        <div className="flex items-center gap-2 text-sm tabular-nums">
-          <span>{Math.round(Math.abs(hud.speed) * 3.6)} km/h</span>
-          <span className="flex overflow-hidden rounded border border-white/40 text-xs font-black" aria-label={`기어 ${hud.gear}`}>
-            <span className={hud.gear === "D" ? "bg-emerald-400 px-1.5 text-emerald-950" : "px-1.5 text-white/50"}>D</span>
-            <span className={hud.gear === "R" ? "bg-orange-400 px-1.5 text-orange-950" : "px-1.5 text-white/50"}>R</span>
-          </span>
-        </div>
-        <div className="text-sm">🎣 낚시 +{hud.fishCoins}</div>
-        {hud.best !== null && <div className="text-sm text-sky-200">👻 베스트 {formatTime(hud.best)}</div>}
+      {/* 순위·랩·기록 */}
+      <div className="pointer-events-none absolute left-4 top-4">
+        <Slant className="bg-black/65 px-4 py-1.5">
+          <div className="flex items-end gap-1 font-black italic leading-none">
+            <span className="text-5xl tabular-nums">P{hud.rank}</span>
+            <span className="pb-1 text-lg text-white/55">/6</span>
+          </div>
+        </Slant>
+        <Slant className="mt-1.5 bg-black/50 px-4 py-1.5">
+          <div className="grid grid-cols-[auto_auto] gap-x-4 text-sm font-semibold tabular-nums">
+            <Stat label="LAP" value={`${hud.lap}/${LAPS}`} />
+            <Stat label="TIME" value={formatTime(Math.max(0, hud.time))} />
+            {hud.best !== null && <Stat label="BEST" value={formatTime(hud.best)} tone="text-sky-300" />}
+            <Stat label="FISH" value={`+${hud.fishCoins}`} tone="text-amber-300" />
+          </div>
+        </Slant>
       </div>
 
-      <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-black/45 px-3 py-2 text-xs leading-5 text-white pointer-coarse:hidden">
-        W/↑ 가속 · S/↓ 감속 · A/D 조향 · Q 기어 D/R · M 소리<br />
-        Space/F 낚시 (뛰어오른 물고기 근처에서)
+      {/* 남은 시간 */}
+      <div className="pointer-events-none absolute left-1/2 top-4 -translate-x-1/2">
+        <Slant className="bg-black/55 px-5 py-1 text-center">
+          <div className="text-[10px] font-bold tracking-[0.3em] text-white/55">TIME LEFT</div>
+          <div className={`text-2xl font-black italic tabular-nums ${remaining < 30 ? "text-red-400" : ""}`}>{mm}:{ss}</div>
+        </Slant>
+      </div>
+
+      {/* 속도계 */}
+      <div className="pointer-events-none absolute bottom-5 right-5 pointer-coarse:bottom-48">
+        <Speedo kmh={kmh} gear={hud.gear} boost={hud.boost} />
+      </div>
+
+      <div className="pointer-events-none absolute bottom-4 left-4 bg-black/50 px-3 py-1.5 text-[11px] leading-5 tracking-wide text-white/85 pointer-coarse:hidden">
+        <Key>W</Key> 가속 <Key>S</Key> 감속 <Key>A</Key><Key>D</Key> 조향 <Key>Q</Key> 기어 <Key>SPACE</Key> 낚시 <Key>M</Key> 소리
       </div>
 
       {hud.canFish && hud.time >= 0 && (
-        <div className="pointer-events-none absolute bottom-28 left-1/2 -translate-x-1/2 animate-pulse rounded-full bg-yellow-300 px-5 py-2 text-lg font-black text-sky-900 shadow">
-          🎣 지금 낚아채!
+        <div className="pointer-events-none absolute bottom-28 left-1/2 -translate-x-1/2 pointer-coarse:bottom-48">
+          <Slant className="bg-amber-400 px-5 py-1.5 text-black">
+            <span className="text-lg font-black italic tracking-wide">SPACE · 낚아채기</span>
+          </Slant>
         </div>
       )}
 
@@ -618,7 +659,7 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
         <div className="flex items-end gap-3">
           <div className="flex flex-col gap-3">
             <TouchButton label="D/R" onPointerDown={() => { touchRef.current.gear = true; }} />
-            <TouchButton label="🎣" onPointerDown={() => { touchRef.current.fish = true; }} />
+            <TouchButton label="CATCH" onPointerDown={() => { touchRef.current.fish = true; }} />
           </div>
           <div className="flex flex-col gap-3">
             <TouchButton label="▲" {...hold("gas")} />
@@ -627,23 +668,88 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
         </div>
       </div>
 
-      {hud.time < 0 && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-8xl font-black text-white drop-shadow-lg">
-          {Math.ceil(-hud.time)}
-        </div>
-      )}
-      {hud.time >= 0 && hud.time < 1 && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-7xl font-black text-yellow-300 drop-shadow-lg">
-          GO!
+      {/* 출발 신호등: 1초마다 빨간 불이 하나씩, 출발하면 모두 초록 */}
+      {hud.time < 1 && (
+        <div className="pointer-events-none absolute left-1/2 top-[26%] flex -translate-x-1/2 gap-3 rounded-lg border border-white/10 bg-black/75 px-5 py-3 shadow-2xl">
+          {[0, 1, 2].map((i) => {
+            const lit = hud.time >= 0 ? "go" : i < 4 - Math.ceil(-hud.time) ? "on" : "off";
+            return (
+              <div
+                key={i}
+                className={`h-10 w-10 rounded-full ${
+                  lit === "go"
+                    ? "bg-emerald-400 shadow-[0_0_24px_rgba(52,211,153,0.9)]"
+                    : lit === "on"
+                      ? "bg-red-500 shadow-[0_0_24px_rgba(239,68,68,0.9)]"
+                      : "bg-neutral-700"
+                }`}
+              />
+            );
+          })}
         </div>
       )}
       <SplitBadge delta={hud.split} />
       <CatchBanner value={hud.legend} />
       {hud.message && (
-        <div className="pointer-events-none absolute left-1/2 top-24 -translate-x-1/2 rounded-full bg-white/90 px-5 py-2 text-lg font-bold text-sky-900 shadow">
-          {hud.message}
+        <div className="pointer-events-none absolute left-1/2 top-24 -translate-x-1/2">
+          <Slant className="bg-black/70 px-6 py-1.5">
+            <span className="text-lg font-black italic tracking-wide">{hud.message}</span>
+          </Slant>
         </div>
       )}
+    </div>
+  );
+}
+
+// 레이싱 HUD의 기울어진 패널 (내용은 다시 바로 세운다)
+function Slant({ className, children }: { className: string; children: React.ReactNode }) {
+  return (
+    <div className={`-skew-x-12 ${className}`}>
+      <div className="skew-x-12">{children}</div>
+    </div>
+  );
+}
+
+function Stat({ label, value, tone = "" }: { label: string; value: string; tone?: string }) {
+  return (
+    <>
+      <span className="text-[11px] font-bold tracking-[0.2em] text-white/55">{label}</span>
+      <span className={`text-right italic ${tone}`}>{value}</span>
+    </>
+  );
+}
+
+function Key({ children }: { children: React.ReactNode }) {
+  return <span className="mx-0.5 rounded-sm border border-white/30 px-1 font-bold">{children}</span>;
+}
+
+// 원형 속도계: 270° 눈금이 속도만큼 채워지고, 부스트 중엔 시안색
+function Speedo({ kmh, gear, boost }: { kmh: number; gear: "D" | "R"; boost: boolean }) {
+  const R = 54;
+  const C = 2 * Math.PI * R;
+  const arc = C * 0.75;
+  const frac = Math.min(kmh / 160, 1);
+  return (
+    <div className="relative h-36 w-36">
+      <svg viewBox="0 0 140 140" className="h-full w-full">
+        <circle cx="70" cy="70" r="66" fill="rgba(0,0,0,0.6)" />
+        <g transform="rotate(135 70 70)">
+          <circle cx="70" cy="70" r={R} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="9" strokeDasharray={`${arc} ${C}`} />
+          <circle
+            cx="70" cy="70" r={R} fill="none" strokeWidth="9"
+            stroke={boost ? "#22d3ee" : gear === "R" ? "#fb923c" : "#ffffff"}
+            strokeDasharray={`${arc * frac} ${C}`}
+          />
+        </g>
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className="text-4xl font-black italic leading-none tabular-nums">{kmh}</div>
+        <div className="mt-0.5 text-[10px] font-bold tracking-[0.3em] text-white/55">KM/H</div>
+        <div className="mt-1 flex gap-1 text-xs font-black" aria-label={`기어 ${gear}`}>
+          <span className={gear === "D" ? "text-white" : "text-white/30"}>D</span>
+          <span className={gear === "R" ? "text-orange-400" : "text-white/30"}>R</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -656,7 +762,7 @@ function TouchButton({
     <button
       {...handlers}
       onContextMenu={(e) => e.preventDefault()}
-      className="h-16 w-16 rounded-full bg-white/25 text-2xl text-white backdrop-blur active:bg-white/50"
+      className="h-16 w-16 rounded-full border border-white/30 bg-black/40 text-sm font-black text-white backdrop-blur active:bg-white/30"
     >
       {label}
     </button>

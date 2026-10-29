@@ -4,11 +4,17 @@ export default function SplitBadge({ delta }: { delta: number | null }) {
   const ahead = delta <= 0;
   return (
     <div
-      className={`pointer-events-none absolute left-1/2 top-40 -translate-x-1/2 rounded-full px-4 py-1 text-xl font-black tabular-nums shadow ${
-        ahead ? "bg-emerald-400 text-emerald-950" : "bg-rose-400 text-rose-950"
+      className={`pointer-events-none absolute left-1/2 top-40 -translate-x-1/2 -skew-x-12 px-4 py-1 text-white shadow-lg ${
+        ahead ? "bg-emerald-500" : "bg-rose-500"
       }`}
     >
-      👻 {ahead ? "−" : "+"}{Math.abs(delta).toFixed(2)}s
+      <div className="flex skew-x-12 items-baseline gap-2 font-black italic tabular-nums">
+        <span className="text-[11px] tracking-[0.25em] opacity-80">BEST</span>
+        <span className="text-2xl">
+          {ahead ? "−" : "+"}
+          {Math.abs(delta).toFixed(2)}
+        </span>
+      </div>
     </div>
   );
 }
