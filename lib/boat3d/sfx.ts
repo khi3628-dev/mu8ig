@@ -10,7 +10,8 @@ export type SfxEvent =
   | { type: "checkpoint" }
   | { type: "lap" }
   | { type: "finish" }
-  | { type: "gear" };
+  | { type: "gear" }
+  | { type: "contact" }; // 다른 제트스키와 부딪힘
 
 export interface SfxSnap {
   count: number; // 카운트다운 남은 숫자 (출발 후 0)
@@ -22,6 +23,7 @@ export interface SfxSnap {
   finished: boolean;
   msg: string;
   msgTimer: number;
+  contacts: number;
 }
 
 export function sfxSnapshot(s: RaceState): SfxSnap {
@@ -36,6 +38,7 @@ export function sfxSnapshot(s: RaceState): SfxSnap {
     finished: p.finishTime !== null,
     msg: s.message,
     msgTimer: s.messageTimer,
+    contacts: s.contacts,
   };
 }
 
@@ -43,6 +46,7 @@ export function sfxEvents(prev: SfxSnap, cur: SfxSnap): SfxEvent[] {
   const out: SfxEvent[] = [];
   if (cur.count !== prev.count) out.push(cur.count > 0 ? { type: "tick" } : { type: "go" });
   if (cur.boost && !prev.boost) out.push({ type: "boost" });
+  if (cur.contacts > prev.contacts) out.push({ type: "contact" });
   if (cur.caught > prev.caught) out.push({ type: "catch", legend: cur.lastSpecies === FISH.length - 1 });
   // 허탕 메시지가 새로 떴을 때 (타이머가 다시 채워짐)
   if (cur.msg === MISS_MESSAGE && cur.msgTimer > prev.msgTimer) out.push({ type: "miss" });

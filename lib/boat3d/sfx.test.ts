@@ -58,4 +58,14 @@ describe("효과음 이벤트", () => {
     p.next = 0;
     expect(step(s, 0.01)).toContain("finish");
   });
+
+  it("다른 제트스키와 부딪히는 순간 충돌음", () => {
+    const s = createRace(() => 0.5);
+    s.time = 0;
+    const [p, ai] = s.racers;
+    ai.x = p.x + 1;
+    ai.y = p.y;
+    expect(step(s, 0.01)).toContain("contact");
+    expect(step(s, 0.01)).not.toContain("contact");
+  });
 });

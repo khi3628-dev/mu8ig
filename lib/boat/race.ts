@@ -23,6 +23,10 @@ const BOOST_RADIUS = 5;
 const CATCH_SLOW_TIME = 1;
 const REVERSE_SPEED = 7; // 후진 최고 속도 (약 25km/h)
 const REVERSE_ACCEL = 6;
+const HULL_RADIUS = 1.6; // 제트스키끼리 부딪히는 반경 (m)
+const CONTACT_SLOW = 0.95; // 부딪힐 때마다 남는 속도 비율
+const PACK_GAIN = 0.06; // AI 접전 보정: 체크포인트 하나 차이당 속도 ±6%
+const PACK_MAX = 0.12; // 보정 상한 ±12%
 
 export interface Point { x: number; y: number }
 
@@ -100,6 +104,8 @@ export interface RaceState {
   fish: JumpingFish[];
   caught: number[]; // 잡은 물고기 종 인덱스
   lastCatch: { species: number; at: number } | null;
+  contacts: number; // 플레이어가 다른 제트스키와 부딪힌 횟수 (효과음용)
+  touching: Set<string>; // 지금 맞닿아 있는 쌍 (부딪히는 순간만 감속·집계하려고)
   fishTimer: number;
   nextFishId: number;
   message: string;
@@ -187,6 +193,8 @@ export function createRace(
     fish: [],
     caught: [],
     lastCatch: null,
+    contacts: 0,
+    touching: new Set(),
     fishTimer: 1,
     nextFishId: 1,
     message: "",
@@ -239,13 +247,14 @@ export function updateRace(state: RaceState, dt: number, input: RaceInput, rand:
   if (state.time < 0) return;
 
   const player = state.racers[0];
+  const playerProgress = progress(state, player);
   for (const r of state.racers) {
     if (r.finishTime !== null) {
       r.speed = Math.max(0, r.speed - DRAG * dt); // 완주 후엔 서서히 멈춘다
     } else if (r.isPlayer) {
       steerPlayer(state, r, input, dt);
     } else {
-      steerAI(state, r, dt);
+      steerAI(state, r, dt, playerProgress);
     }
     r.x += Math.cos(r.heading) * r.speed * dt;
     r.y += Math.sin(r.heading) * r.speed * dt;
@@ -260,6 +269,7 @@ export function updateRace(state: RaceState, dt: number, input: RaceInput, rand:
     checkpoints(state, r);
   }
 
+  collide(state);
   if (player.finishTime === null) recordSample(state.recording, state.time, player.x, player.y, player.heading);
   updateFish(state, dt, rand);
   if (input.fish) tryCatch(state, player);
@@ -296,7 +306,35 @@ function steerPlayer(state: RaceState, r: Racer, input: RaceInput, dt: number) {
   if (r.speed > max) r.speed = Math.max(max, r.speed - BRAKE * dt);
 }
 
-function steerAI(state: RaceState, r: Racer, dt: number) {
+// 제트스키끼리 겹치면 서로 밀어내고 속도를 잃는다
+function collide(state: RaceState) {
+  const rs = state.racers;
+  for (let i = 0; i < rs.length; i++) {
+    for (let j = i + 1; j < rs.length; j++) {
+      const a = rs[i], b = rs[j];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.hypot(dx, dy);
+      const key = `${i}-${j}`;
+      if (d >= HULL_RADIUS * 2) {
+        state.touching.delete(key);
+        continue;
+      }
+      const nx = d > 1e-6 ? dx / d : 1, ny = d > 1e-6 ? dy / d : 0;
+      const push = (HULL_RADIUS * 2 - d) / 2;
+      a.x -= nx * push;
+      a.y -= ny * push;
+      b.x += nx * push;
+      b.y += ny * push;
+      if (state.touching.has(key)) continue; // 이미 맞닿아 있으면 밀어내기만
+      state.touching.add(key);
+      a.speed *= CONTACT_SLOW;
+      b.speed *= CONTACT_SLOW;
+      if (a.isPlayer || b.isPlayer) state.contacts += 1;
+    }
+  }
+}
+
+function steerAI(state: RaceState, r: Racer, dt: number, playerProgress: number) {
   const n = state.course.length;
   const target = state.course[r.next];
   const after = state.course[(r.next + 1) % n];
@@ -305,11 +343,23 @@ function steerAI(state: RaceState, r: Racer, dt: number) {
   const len = Math.hypot(dirX, dirY) || 1;
   const tx = target.x - (dirY / len) * r.laneOffset;
   const ty = target.y + (dirX / len) * r.laneOffset;
-  const desired = Math.atan2(ty - r.y, tx - r.x);
+  let desired = Math.atan2(ty - r.y, tx - r.x);
+  // 바로 앞에 다른 제트스키가 있으면 옆으로 비켜 추월한다 (뒤에서 들이받지 않게)
+  const hx = Math.cos(r.heading), hy = Math.sin(r.heading);
+  for (const o of state.racers) {
+    if (o === r) continue;
+    const ox = o.x - r.x, oy = o.y - r.y;
+    const ahead = ox * hx + oy * hy;
+    const side = -ox * hy + oy * hx; // 양수 = 오른쪽
+    if (ahead > 0 && ahead < 12 && Math.abs(side) < 3.5) desired += (side >= 0 ? -0.5 : 0.5) * (1 - ahead / 12);
+  }
   let diff = desired - r.heading;
   diff = Math.atan2(Math.sin(diff), Math.cos(diff));
   r.heading += Math.max(-1, Math.min(1, diff * 2)) * TURN_RATE * dt;
-  approachSpeed(r, maxSpeedFor(state, r, r.topSpeed), dt);
+  // 접전 유지: 플레이어보다 뒤처지면 조금 빨라지고, 많이 앞서면 조금 늦춘다
+  const gap = playerProgress - progress(state, r);
+  const pace = 1 + Math.max(-PACK_MAX, Math.min(PACK_MAX, gap * PACK_GAIN));
+  approachSpeed(r, maxSpeedFor(state, r, r.topSpeed * pace), dt);
 }
 
 function checkpoints(state: RaceState, r: Racer) {

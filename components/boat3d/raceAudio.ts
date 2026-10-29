@@ -238,6 +238,12 @@ export class RaceAudio {
         if (!this.playRec("finish_horn", 0.9)) this.horn();
         if (!this.playRec("crowd", 0.5, 0.4)) this.noiseHit("bandpass", 1200, 900, 3.2, 0.06, 0.3, 1.2);
         break;
+      case "contact":
+        // 선체끼리 부딪히는 둔탁한 쿵 + 플라스틱 선체 울림
+        this.thump(130, 55, 0.18, 0.3);
+        this.noiseHit("lowpass", 900, 200, 0.22, 0.16);
+        this.noiseHit("bandpass", 1300, 900, 0.08, 0.08);
+        break;
       case "gear":
         if (!this.playRec("gear_shift", 0.7)) {
           this.noiseHit("lowpass", 600, 200, 0.08, 0.12);

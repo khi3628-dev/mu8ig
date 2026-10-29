@@ -312,6 +312,8 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
     audioRef.current = audio;
     let sfxPrev = { ...sfxSnapshot(state), count: 0 }; // 첫 프레임에 "3" 삐 소리가 나게
     let throttleOn = false;
+    let shake = 0; // 충돌 직후 카메라 흔들림 (초)
+    let seenContacts = 0;
     const onKeyDown = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if ((k === " " || k === "f") && !e.repeat) fishPressed = true;
@@ -540,7 +542,15 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
       camHeading += angleDiff(p0.heading, camHeading) * (1 - Math.exp(-4 * dt));
       const cx = Math.cos(camHeading), cz = Math.sin(camHeading);
       const intro = Math.max(0, -state.time) / 3;
-      camera.position.set(p0.x - cx * (13 + intro * 14), 5.6 + intro * 9, p0.y - cz * (13 + intro * 14));
+      if (state.contacts > seenContacts) shake = 0.3;
+      seenContacts = state.contacts;
+      shake = Math.max(0, shake - dt);
+      const jolt = shake * 1.2;
+      camera.position.set(
+        p0.x - cx * (13 + intro * 14) + (Math.random() - 0.5) * jolt,
+        5.6 + intro * 9 + (Math.random() - 0.5) * jolt,
+        p0.y - cz * (13 + intro * 14) + (Math.random() - 0.5) * jolt,
+      );
       camera.lookAt(p0.x + cx * 9, 1.8, p0.y + cz * 9);
       const fov = 62 + Math.min(Math.abs(p0.speed) / 30, 1.3) * 9 + (p0.boost > 0 ? 6 : 0);
       camera.fov += (fov - camera.fov) * (1 - Math.exp(-5 * dt));

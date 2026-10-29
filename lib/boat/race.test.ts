@@ -211,4 +211,51 @@ describe("water ski race", () => {
       expect(s.racers[0].speed).toBeGreaterThan(0);
     });
   });
+
+  describe("몸싸움과 접전", () => {
+    it("제트스키끼리 겹치면 밀려나고, 부딪히는 순간 한 번만 감속·집계한다", () => {
+      const s = createRace(() => 0.5);
+      s.time = 0;
+      const [p, ai] = s.racers;
+      ai.x = p.x + 1;
+      ai.y = p.y;
+      p.speed = 20;
+      ai.speed = 20;
+      updateRace(s, 0.01, idle);
+      expect(Math.hypot(ai.x - p.x, ai.y - p.y)).toBeGreaterThanOrEqual(3.1);
+      expect(s.contacts).toBe(1);
+      const after = p.speed;
+      expect(after).toBeLessThan(20);
+      // 붙어 있는 동안 계속 깎이지 않는다
+      ai.x = p.x + 3;
+      ai.y = p.y;
+      updateRace(s, 0.01, idle);
+      expect(s.contacts).toBe(1);
+    });
+
+    it("플레이어보다 뒤처진 AI는 빨라지고, 앞선 AI는 늦춰진다", () => {
+      const run = (playerLap: number) => {
+        const s = createRace(() => 0.5);
+        s.time = 0;
+        s.boostPads = [];
+        const p = s.racers[0];
+        p.lap = playerLap;
+        p.x = 9999; // 충돌·체크포인트에 끼지 않게 멀리
+        for (let i = 0; i < 200; i++) updateRace(s, 0.05, idle);
+        return s.racers[1].speed;
+      };
+      const behind = run(2); // 플레이어가 두 바퀴 앞섬 → AI가 뒤처짐
+      const ahead = run(0);
+      expect(behind).toBeGreaterThan(27);
+      expect(behind).toBeGreaterThan(ahead);
+    });
+
+    it("같은 줄에서 출발해도 AI끼리 들이받지 않고 비켜 추월한다", () => {
+      const s = createRace(() => 0.5); // 모든 AI가 같은 차선
+      for (let i = 0; i < (COUNTDOWN + TIME_LIMIT) * 20 && !s.done; i++) updateRace(s, 0.05, idle, () => 0.5);
+      const ai = s.racers.slice(1);
+      const times = ai.map((r) => r.finishTime!);
+      expect([...times].sort((a, b) => a - b)).toEqual(times);
+    });
+  });
 });
