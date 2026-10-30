@@ -11,6 +11,7 @@ public class YachtParadise : ModuleRules
 		{
 			"Core", "CoreUObject", "Engine", "InputCore",
 			"AudioMixer", // USynthComponent: 소리 파일 없이 엔진음·효과음을 합성
+			"Water", // 실제 바다 (AWaterBodyOcean)
 		});
 
 		// 엔진 독립 게임 규칙 코어 (Tests/run.sh로 언리얼 없이 테스트한다)

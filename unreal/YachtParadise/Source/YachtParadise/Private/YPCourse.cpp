@@ -1,8 +1,12 @@
 #include "YPCourse.h"
 
 #include "Components/InstancedStaticMeshComponent.h"
+#include "EngineUtils.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/World.h"
+#include "WaterBodyOceanActor.h"
+#include "WaterZoneActor.h"
 #include "YPShapes.h"
 
 using YPShapes::EShape;
@@ -44,14 +48,41 @@ AYPCourse::AYPCourse()
 	RootComponent = Root;
 }
 
+bool AYPCourse::SpawnWaterOcean()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return false;
+	}
+	// 레벨에 이미 놓아 둔 바다가 있으면 그것을 쓴다
+	for (TActorIterator<AWaterBodyOcean> It(World); It; ++It)
+	{
+		return true;
+	}
+	// 확인 필요: 실행 중 생성 시 Water Zone이 있어야 바다가 그려진다
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	AWaterZone* Zone = World->SpawnActor<AWaterZone>(FVector(0, 0, -50), FRotator::ZeroRotator, Params);
+	if (Zone)
+	{
+		Zone->SetZoneExtent(FVector2D(600000.0, 600000.0)); // 6km
+	}
+	AWaterBodyOcean* Ocean = World->SpawnActor<AWaterBodyOcean>(FVector(0, 0, -50), FRotator::ZeroRotator, Params);
+	return Zone != nullptr && Ocean != nullptr;
+}
+
 void AYPCourse::Build(const yp::RaceState& State)
 {
 	using namespace YPCourseLook;
 	Course = State.course;
 	const int32 N = static_cast<int32>(Course.size());
 
-	// 바다: 넓고 평평한 면 (실제 물결은 UE Water 플러그인으로 바꿀 수 있다, README 참고)
-	YPShapes::Add(this, Root, EShape::Cube, FVector(6000, 6000, 1), FVector(0, 0, -0.55), Sea);
+	// 바다: Water 플러그인의 Ocean. 만들 수 없으면 예전처럼 평평한 면으로 대신한다.
+	if (!SpawnWaterOcean())
+	{
+		YPShapes::Add(this, Root, EShape::Cube, FVector(6000, 6000, 1), FVector(0, 0, -0.55), Sea);
+	}
 
 	// 체크포인트 게이트: 코스 폭 양끝 기둥, 출발선은 흑백 배너
 	for (int32 i = 0; i < N; i++)

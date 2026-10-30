@@ -27,6 +27,8 @@ public:
 	void Animate(double Time);
 
 private:
+	bool SpawnWaterOcean();
+
 	UPROPERTY()
 	TObjectPtr<USceneComponent> Root;
 
