@@ -5,6 +5,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "WaterBodyComponent.h"
 #include "WaterBodyOceanActor.h"
 #include "WaterZoneActor.h"
 #include "YPShapes.h"
@@ -58,6 +59,7 @@ bool AYPCourse::SpawnWaterOcean()
 	// 레벨에 이미 놓아 둔 바다가 있으면 그것을 쓴다
 	for (TActorIterator<AWaterBodyOcean> It(World); It; ++It)
 	{
+		Ocean = *It;
 		return true;
 	}
 	// 확인 필요: 실행 중 생성 시 Water Zone이 있어야 바다가 그려진다
@@ -68,8 +70,26 @@ bool AYPCourse::SpawnWaterOcean()
 	{
 		Zone->SetZoneExtent(FVector2D(600000.0, 600000.0)); // 6km
 	}
-	AWaterBodyOcean* Ocean = World->SpawnActor<AWaterBodyOcean>(FVector(0, 0, -50), FRotator::ZeroRotator, Params);
-	return Zone != nullptr && Ocean != nullptr;
+	Ocean = World->SpawnActor<AWaterBodyOcean>(FVector(0, 0, -50), FRotator::ZeroRotator, Params);
+	return Zone != nullptr && Ocean.IsValid();
+}
+
+double AYPCourse::SurfaceHeight(double X, double Y, double Time) const
+{
+	if (const AWaterBodyOcean* Body = Ocean.Get())
+	{
+		// 확인 필요: UE 5.4 UWaterBodyComponent::GetWaterSurfaceInfoAtLocation 시그니처
+		if (UWaterBodyComponent* Water = Body->GetWaterBodyComponent())
+		{
+			FVector Surface, Normal, Velocity;
+			float Depth = 0.f;
+			if (Water->GetWaterSurfaceInfoAtLocation(FVector(X * 100.0, Y * 100.0, 0), Surface, Normal, Velocity, Depth))
+			{
+				return Surface.Z / 100.0;
+			}
+		}
+	}
+	return yp::waveHeight(X, Y, Time);
 }
 
 void AYPCourse::Build(const yp::RaceState& State)
@@ -186,7 +206,7 @@ void AYPCourse::Animate(double Time)
 	for (int32 i = 0; i < Total; i++)
 	{
 		const yp::Vec2& P = BuoyPoints[i];
-		const FTransform T(FRotator::ZeroRotator, FVector(P.x, P.y, yp::waveHeight(P.x, P.y, Time) + 0.1) * 100.0, FVector(1.8));
+		const FTransform T(FRotator::ZeroRotator, FVector(P.x, P.y, SurfaceHeight(P.x, P.y, Time) + 0.1) * 100.0, FVector(1.8));
 		const bool bLastOfKind = i >= Total - 2;
 		if (i % 2)
 		{

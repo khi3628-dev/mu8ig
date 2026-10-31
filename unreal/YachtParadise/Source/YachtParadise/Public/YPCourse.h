@@ -9,6 +9,7 @@
 
 class UInstancedStaticMeshComponent;
 class UStaticMeshComponent;
+class AWaterBodyOcean;
 
 UCLASS()
 class YACHTPARADISE_API AYPCourse : public AActor
@@ -22,6 +23,9 @@ public:
 
 	// 다음에 지나야 할 게이트를 노란색으로, 그 위에 빛기둥을 세운다
 	void HighlightGate(int32 Next);
+
+	// 지금 (x, y)의 수면 높이(m). Water Ocean이 있으면 그 수면, 없으면 코어의 파도
+	double SurfaceHeight(double X, double Y, double Time) const;
 
 	// 부표·패드가 파도를 따라 출렁인다
 	void Animate(double Time);
@@ -43,6 +47,8 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UInstancedStaticMeshComponent> WhiteBuoys;
+
+	TWeakObjectPtr<AWaterBodyOcean> Ocean;
 
 	std::vector<yp::Vec2> Course;
 	std::vector<yp::Vec2> BuoyPoints;

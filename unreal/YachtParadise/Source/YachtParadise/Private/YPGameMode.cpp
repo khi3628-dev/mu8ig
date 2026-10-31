@@ -333,10 +333,10 @@ void AYPGameMode::TickRace(double Dt)
 		const yp::Racer& R = Race->racers[i];
 		AYPJetSki* Ski = Skis[i];
 		const double DirX = std::cos(R.heading), DirY = std::sin(R.heading);
-		const double Ahead = yp::waveHeight(R.x + DirX * 1.6, R.y + DirY * 1.6, T);
-		const double Behind = yp::waveHeight(R.x - DirX * 1.6, R.y - DirY * 1.6, T);
+		const double Ahead = Course->SurfaceHeight(R.x + DirX * 1.6, R.y + DirY * 1.6, T);
+		const double Behind = Course->SurfaceHeight(R.x - DirX * 1.6, R.y - DirY * 1.6, T);
 		const double SpeedFrac = FMath::Min(std::abs(R.speed) / 30, 1.3);
-		const double Impact = yp::stepHop(Ski->Hop, yp::waveHeight(R.x, R.y, T) + yp::chop(R.x, R.y, T) + 0.15, Dt, R.speed / 30);
+		const double Impact = yp::stepHop(Ski->Hop, Course->SurfaceHeight(R.x, R.y, T) + yp::chop(R.x, R.y, T) + 0.15, Dt, R.speed / 30);
 		const double Pitch = std::atan2(Ahead - Behind, 3.2) + 0.07 * SpeedFrac + (Ski->Hop.airborne ? 0.1 : 0);
 		const double YawRate = AngleDiff(R.heading, Ski->PrevHeading) / Dt;
 		Ski->PrevHeading = R.heading;
@@ -351,7 +351,7 @@ void AYPGameMode::TickRace(double Dt)
 	if (Race->ghost)
 	{
 		const yp::Pose G = yp::ghostPose(*Race->ghost, FMath::Max(0.0, Race->time));
-		GhostSki->SetPose(G.x, G.y, yp::waveHeight(G.x, G.y, T) + 0.15, G.heading, 0, 0);
+		GhostSki->SetPose(G.x, G.y, Course->SurfaceHeight(G.x, G.y, T) + 0.15, G.heading, 0, 0);
 	}
 
 	// 뛰어오르는 물고기
