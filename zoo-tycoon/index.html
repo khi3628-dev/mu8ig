@@ -5,7 +5,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap">
 <style>
-/* Layout: one-screen game — stat bar, zoo canvas, action row, animal shop below. Single daylight theme by choice. */
+/* Layout: one-screen game — stat bar, zoo canvas, contextual action row, animal guide below. Single daylight theme by choice. */
 :root {
   --paper: #eef3e2;
   --ink: #23301f;
@@ -36,21 +36,30 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: 1.9rem; marg
 .chip { background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-variant-numeric: tabular-nums; font-size: .95rem; white-space: nowrap; }
 .chip b { font-family: var(--font-display); font-weight: 400; font-size: 1.1rem; }
 .chip.money b { color: #a8740a; }
+.chip.warn { background: var(--bad); border-color: var(--bad); color: #fff; }
 .stage { position: relative; width: 100%; }
 canvas { display: block; width: 100%; height: auto; max-width: 100%; border-radius: 14px; border: 3px solid var(--bark); background: #8cc56a; touch-action: none; cursor: pointer; }
-.overlay { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(35,48,31,.45); border-radius: 14px; padding: 12px; }
-.panel { background: var(--card); border-radius: 14px; padding: 18px 20px; max-width: 360px; width: 100%; text-align: center; display: grid; gap: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.25); }
+.overlay { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(35,48,31,.45); border-radius: 14px; padding: 12px; overflow: auto; }
+.panel { background: var(--card); border-radius: 14px; padding: 18px 20px; max-width: 420px; width: 100%; text-align: center; display: grid; gap: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.25); }
 .panel h2 { font-family: var(--font-display); font-weight: 400; margin: 0; font-size: 1.6rem; color: var(--leaf-dark); text-wrap: balance; }
 .panel p { margin: 0; line-height: 1.55; color: var(--muted); }
+.pick { display: grid; gap: 6px; max-height: 260px; overflow-y: auto; text-align: left; }
+.pick-row { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; }
+.pick-row .em { font-size: 1.7rem; }
+.pick-row .info { flex: 1; min-width: 0; font-size: .85rem; color: var(--muted); line-height: 1.35; }
+.pick-row .info b { font-family: var(--font-display); font-weight: 400; color: var(--ink); font-size: 1.05rem; }
+.pick-row button { font-size: .9rem; padding: 6px 10px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-button { font-family: var(--font-display); font-size: 1.05rem; border: 0; border-radius: 12px; padding: 10px 16px; cursor: pointer; background: var(--leaf); color: #fff; box-shadow: 0 3px 0 var(--leaf-dark); }
+button { font-family: var(--font-display); font-size: 1.05rem; border: 0; border-radius: 12px; padding: 10px 14px; cursor: pointer; background: var(--leaf); color: #fff; box-shadow: 0 3px 0 var(--leaf-dark); }
+button small { font-family: var(--font-body); opacity: .8; }
 button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--leaf-dark); }
 button:disabled { background: #b9c2ad; box-shadow: 0 3px 0 #9aa48c; cursor: not-allowed; }
 button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 button.alt { background: var(--sun); color: var(--ink); box-shadow: 0 3px 0 #b88515; }
+button.urgent { background: var(--bad); box-shadow: 0 3px 0 #8a2f1e; }
 button.ghost { background: var(--card); color: var(--ink); border: 1px solid var(--line); box-shadow: none; }
-.target { color: var(--muted); font-size: .95rem; min-width: 0; flex: 1 1 200px; }
-.hint { margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.5; }
+.target { color: var(--muted); font-size: .95rem; min-width: 0; flex: 1 1 100%; }
+.hint { margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.6; }
 kbd { font-family: var(--font-body); background: var(--card); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; font-size: .85em; }
 h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.3rem; margin: 6px 0 0; color: var(--leaf-dark); }
 .shop { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
@@ -58,7 +67,9 @@ h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.3rem; marg
 .card .em { font-size: 2rem; line-height: 1.1; }
 .card .nm { font-family: var(--font-display); font-size: 1.15rem; }
 .card .meta { font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-.card button { font-size: .95rem; padding: 7px 10px; margin-top: 4px; }
+.card .tag { justify-self: start; font-size: .8rem; border-radius: 999px; padding: 1px 8px; background: #f3ead2; color: var(--bark); }
+.card .tag.circus { background: #fbe1da; color: var(--bad); }
+.card .st { font-size: .85rem; font-family: var(--font-display); color: var(--leaf-dark); }
 .card.owned { background: #f5f9ec; }
 .toast { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 6px 14px; border-radius: 999px; font-size: .95rem; pointer-events: none; transition: opacity .3s; white-space: nowrap; max-width: 90%; overflow: hidden; text-overflow: ellipsis; }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
@@ -72,6 +83,7 @@ h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.3rem; marg
       <span class="chip">🧍 관람객 <b id="sVisitors">0</b></span>
       <span class="chip">누적 <b id="sTotal">0</b>명</span>
       <span class="chip">⭐ 인기도 <b id="sPop">0</b></span>
+      <span class="chip warn" id="sSmell" hidden>🤢 냄새 때문에 관람객이 줄었어요</span>
     </div>
   </header>
 
@@ -81,6 +93,7 @@ h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.3rem; marg
       <div class="panel">
         <h2 id="ovTitle"></h2>
         <p id="ovText"></p>
+        <div class="pick" id="ovList" hidden></div>
         <button id="ovBtn" type="button"></button>
       </div>
     </div>
@@ -88,33 +101,45 @@ h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.3rem; marg
   </div>
 
   <div class="actions">
-    <button id="btnFeed" type="button">🥕 밥주기 <small>(F)</small></button>
-    <button id="btnClean" type="button">🧹 청소하기 <small>(C)</small></button>
+    <button id="btnBuy" type="button" hidden>🐾 동물 들이기 <small>(B)</small></button>
+    <button id="btnFeed" type="button" hidden>🥕 밥주기 <small>(F)</small></button>
+    <button id="btnClean" type="button" hidden>🧹 청소 <small>(C)</small></button>
+    <button id="btnAdd" type="button" hidden>➕ 한 마리 더 <small>(N)</small></button>
+    <button id="btnUpgrade" type="button" hidden>🔨 우리 업그레이드 <small>(U)</small></button>
+    <button id="btnSpecial" type="button" class="alt" hidden>🎪 <small>(G)</small></button>
     <button id="btnPanda" type="button" class="alt">🐼 아기 판다 감시하기</button>
-    <span class="target" id="targetText">우리 안으로 걸어가면 밥주기·청소를 할 수 있어요.</span>
+    <span class="target" id="targetText"></span>
   </div>
-  <p class="hint">화면을 누르거나 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>·방향키로 사육사를 움직이세요. 배부르고 깨끗한 동물일수록 관람객이 많이 오고 팁을 더 줘요. 밥 한 번에 5원이 들어요.</p>
+  <p class="hint">화면을 누르거나 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>·방향키로 사육사를 움직이고, 우리 안에 들어가면 할 수 있는 일이 버튼으로 나와요. 빈 우리에 들어가 동물을 사면 잠시 뒤 배달돼요. 청소 시간이 되면 바로 치워 주세요. 15초 넘게 두면 냄새가 나서 관람객이 오지 않아요.</p>
 
-  <h3>새 동물 들이기</h3>
+  <h3>동물 도감</h3>
   <div class="shop" id="shop"></div>
   <div><button id="btnReset" type="button" class="ghost">처음부터 다시 하기</button></div>
 </div>
 
 <script>
 (() => {
-const W = 800, H = 500, FEED_COST = 5, ENTRY_FEE = 5, MAX_POOP = 6;
+const W = 800, H = 500, FEED_COST = 5, ENTRY_FEE = 5, SMELL_AFTER = 15, MAX_LEVEL = 3;
+const CAPACITY = [0, 2, 3, 4];          // animals per pen by level
+const CLEAN_EVERY = [0, 30, 38, 46];    // seconds between cleanings by level
+const CIRCUS_TIME = 10, CIRCUS_CD = 45;
+const DECOS = [{ e: '🌷', n: '꽃밭' }, { e: '🎾', n: '장난감' }, { e: '🏡', n: '예쁜 집' }];
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 const ANIMALS = [
-  { id: 'rabbit',   name: '토끼',   emoji: '🐰', price: 0,    appeal: 2,  ground: '#b9de8a' },
-  { id: 'penguin',  name: '펭귄',   emoji: '🐧', price: 150,  appeal: 3,  ground: '#d6ecf3', water: true },
-  { id: 'monkey',   name: '원숭이', emoji: '🐒', price: 300,  appeal: 4,  ground: '#a9cf78', tree: true },
-  { id: 'zebra',    name: '얼룩말', emoji: '🦓', price: 500,  appeal: 5,  ground: '#e3d39a' },
-  { id: 'giraffe',  name: '기린',   emoji: '🦒', price: 800,  appeal: 6,  ground: '#e8cf8a', tree: true },
-  { id: 'lion',     name: '사자',   emoji: '🦁', price: 1200, appeal: 8,  ground: '#ddc07a' },
-  { id: 'elephant', name: '코끼리', emoji: '🐘', price: 1800, appeal: 9,  ground: '#cdb994', water: true },
-  { id: 'panda',    name: '판다',   emoji: '🐼', price: 2500, appeal: 12, ground: '#9fcf7a', bamboo: true },
+  { id: 'rabbit',   name: '토끼',   emoji: '🐰', price: 0,    appeal: 2,  sp: 'deco',   ground: '#b9de8a' },
+  { id: 'penguin',  name: '펭귄',   emoji: '🐧', price: 150,  appeal: 3,  sp: 'circus', ground: '#d6ecf3', water: true },
+  { id: 'monkey',   name: '원숭이', emoji: '🐒', price: 300,  appeal: 4,  sp: 'circus', ground: '#a9cf78', tree: true },
+  { id: 'zebra',    name: '얼룩말', emoji: '🦓', price: 500,  appeal: 5,  sp: 'deco',   ground: '#e3d39a' },
+  { id: 'giraffe',  name: '기린',   emoji: '🦒', price: 800,  appeal: 6,  sp: 'deco',   ground: '#e8cf8a', tree: true },
+  { id: 'lion',     name: '사자',   emoji: '🦁', price: 1200, appeal: 8,  sp: 'circus', ground: '#ddc07a' },
+  { id: 'elephant', name: '코끼리', emoji: '🐘', price: 1800, appeal: 9,  sp: 'circus', ground: '#cdb994', water: true },
+  { id: 'panda',    name: '판다',   emoji: '🐼', price: 2500, appeal: 12, sp: 'deco',   ground: '#9fcf7a', bamboo: true },
 ];
 const A = Object.fromEntries(ANIMALS.map(a => [a.id, a]));
+const arriveTime = a => Math.round(6 + a.price / 100);
+const addCost = a => Math.max(40, Math.round(a.price * 0.4 / 10) * 10);
+const upgradeCost = (a, lv) => Math.round((lv === 1 ? 150 + a.price * 0.4 : 400 + a.price * 0.8) / 10) * 10;
+const decoCost = (a, n) => Math.round((60 * (n + 1) + a.price * 0.1) / 10) * 10;
 const slotRect = i => ({ x: 16 + (i % 4) * 196, y: i < 4 ? 16 : 324, w: 176, h: 160 });
 
 const cv = document.getElementById('cv');
@@ -126,30 +151,45 @@ ctx.setTransform(scale, 0, 0, scale, 0, 0);
 const josa = (w, a, b) => { const c = w.charCodeAt(w.length - 1) - 0xAC00; return w + (c >= 0 && c % 28 ? a : b); };
 const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const won = n => Math.floor(n).toLocaleString() + '원';
 const $ = id => document.getElementById(id);
 
 let S; // game state
-function makePen(id, hunger = 100, poopCount = 0) {
-  const r = slotRect(0);
-  const pen = { a: id, hunger, poops: [], poopT: rand(7, 13), critters: [] };
-  for (let i = 0; i < 2; i++) pen.critters.push({ x: rand(30, r.w - 30), y: rand(50, r.h - 25), tx: 0, ty: 0, t: 0 });
-  for (let i = 0; i < poopCount; i++) addPoop(pen);
+const isPen = p => p && !p.pending;
+const critter = () => ({ x: rand(30, 146), y: rand(60, 140), tx: rand(30, 146), ty: rand(60, 140), t: 0 });
+function makePen(id, o = {}) {
+  const level = clamp(o.level || 1, 1, MAX_LEVEL);
+  const pen = { a: id, level, count: clamp(o.count || 1, 1, CAPACITY[level]), deco: clamp(o.deco || 0, 0, DECOS.length),
+    hunger: o.hunger ?? 100, cleanCD: o.cleanCD ?? CLEAN_EVERY[level], dirtyT: o.dirtyT ?? null,
+    circusT: 0, circusCD: o.circusCD || 0, critters: [], poops: [] };
+  for (let i = 0; i < pen.count; i++) pen.critters.push(critter());
+  if (pen.dirtyT !== null) makeMess(pen);
   return pen;
 }
-function addPoop(pen) { pen.poops.push({ x: rand(20, 156), y: rand(48, 145) }); }
+function makeMess(p) { p.poops = Array.from({ length: 2 + p.count }, () => ({ x: rand(20, 156), y: rand(50, 145) })); }
 function freshState() {
   const pens = Array(8).fill(null);
-  pens[0] = makePen('rabbit', 70, 2);
+  pens[0] = makePen('rabbit', { hunger: 70, cleanCD: 10 });
   return { money: 100, total: 0, pens, cooldownEnd: 0 };
 }
 function serialize() {
   return { money: S.money, total: S.total, cooldownEnd: S.cooldownEnd,
-    pens: S.pens.map(p => p && { a: p.a, hunger: p.hunger, poops: p.poops.length }) };
+    pens: S.pens.map(p => !p ? null : p.pending ? { pending: p.pending, t: p.t } :
+      { a: p.a, level: p.level, count: p.count, deco: p.deco, hunger: p.hunger, cleanCD: p.cleanCD, dirtyT: p.dirtyT, circusCD: p.circusCD }) };
 }
 function deserialize(d) {
   if (!d || !Array.isArray(d.pens)) return null;
-  return { money: +d.money || 0, total: +d.total || 0, cooldownEnd: +d.cooldownEnd || 0,
-    pens: d.pens.slice(0, 8).map(p => p && A[p.a] ? makePen(p.a, clamp(+p.hunger || 0, 0, 100), clamp(+p.poops || 0, 0, MAX_POOP)) : null) };
+  const pens = d.pens.slice(0, 8).map(p => {
+    if (!p) return null;
+    if (p.pending && A[p.pending]) return { pending: p.pending, t: clamp(+p.t || 0, 0, 60), total: arriveTime(A[p.pending]) };
+    if (!A[p.a]) return null;
+    const o = { level: +p.level || 1, count: +p.count || 1, deco: +p.deco || 0, hunger: clamp(+p.hunger || 0, 0, 100),
+      circusCD: +p.circusCD || 0, cleanCD: p.cleanCD ?? undefined, dirtyT: p.dirtyT ?? null };
+    if (p.poops > 0 && p.dirtyT === undefined) { o.cleanCD = 0; o.dirtyT = 0; } // save from the first version
+    return makePen(p.a, o);
+  });
+  while (pens.length < 8) pens.push(null);
+  return { money: +d.money || 0, total: +d.total || 0, cooldownEnd: +d.cooldownEnd || 0, pens };
 }
 function save() { try { localStorage.setItem('sunflower-zoo', JSON.stringify(serialize())); } catch (e) {} }
 function load() { try { return deserialize(JSON.parse(localStorage.getItem('sunflower-zoo'))); } catch (e) { return null; } }
@@ -158,61 +198,126 @@ const keeper = { x: 400, y: 250, tx: null, ty: null, dir: 1, walk: 0 };
 let visitors = [], floats = [], spawnT = 2, saveT = 5, mode = 'zoo', PG = null;
 const keys = {};
 
-const clean = p => Math.max(0, 100 - p.poops.length * 18);
-const happy = p => (p.hunger + clean(p)) / 2;
-const popularity = () => S.pens.reduce((s, p) => s + (p ? A[p.a].appeal * happy(p) / 100 : 0), 0);
-const ownedCount = () => S.pens.filter(Boolean).length;
+// ---------- pen stats ----------
+const isDirty = p => p.dirtyT !== null;
+const isSmelly = p => isDirty(p) && p.dirtyT >= SMELL_AFTER;
+const cleanScore = p => isSmelly(p) ? 0 : isDirty(p) ? 40 : 100;
+const happy = p => (p.hunger + cleanScore(p)) / 2;
+const penAppeal = p => A[p.a].appeal * (1 + 0.5 * (p.count - 1)) * (1 + 0.25 * p.deco) * (1 + 0.1 * (p.level - 1));
+const popularity = () => S.pens.reduce((s, p) => s + (isPen(p) ? penAppeal(p) * happy(p) / 100 : 0), 0);
+const smellyCount = () => S.pens.filter(p => isPen(p) && isSmelly(p)).length;
+const hasAnimal = id => S.pens.some(p => p && (p.a === id || p.pending === id));
 
 function float(x, y, text, color = '#fff') { floats.push({ x, y, text, color, t: 1.4 }); }
 let toastT;
 function toast(msg) {
   const t = $('toast'); t.textContent = msg; t.style.opacity = 1;
-  clearTimeout(toastT); toastT = setTimeout(() => t.style.opacity = 0, 1800);
+  clearTimeout(toastT); toastT = setTimeout(() => t.style.opacity = 0, 1900);
 }
 
-function currentPen() {
+function currentSlot() {
   for (let i = 0; i < 8; i++) {
     const r = slotRect(i);
-    if (S.pens[i] && keeper.x > r.x - 10 && keeper.x < r.x + r.w + 10 && keeper.y > r.y - 10 && keeper.y < r.y + r.h + 10) return i;
+    if (keeper.x > r.x - 10 && keeper.x < r.x + r.w + 10 && keeper.y > r.y - 10 && keeper.y < r.y + r.h + 10) return i;
   }
   return -1;
 }
+function here() { const i = currentSlot(); return mode === 'zoo' && i >= 0 ? { i, p: S.pens[i], r: slotRect(i) } : null; }
+function pay(cost) { if (S.money < cost) { toast(`${won(cost - S.money)}이 더 필요해요`); return false; } S.money -= cost; return true; }
+
+// ---------- actions ----------
 function feed() {
-  const i = currentPen(); if (i < 0 || mode !== 'zoo') return;
-  const p = S.pens[i], r = slotRect(i);
+  const h = here(); if (!h || !isPen(h.p)) return;
+  const { p, r } = h, cost = FEED_COST * p.count;
   if (p.hunger >= 95) { toast(`${josa(A[p.a].name, '은', '는')} 지금 배불러요`); return; }
-  if (S.money < FEED_COST) { toast('먹이 살 돈이 부족해요'); return; }
-  S.money -= FEED_COST; p.hunger = 100;
-  float(r.x + r.w / 2, r.y + 40, '냠냠! -5원', '#ffe9a8');
+  if (!pay(cost)) return;
+  p.hunger = 100;
+  float(r.x + r.w / 2, r.y + 50, `냠냠! -${cost}원`, '#ffe9a8');
 }
 function cleanPen() {
-  const i = currentPen(); if (i < 0 || mode !== 'zoo') return;
-  const p = S.pens[i], r = slotRect(i);
-  if (!p.poops.length) { toast('이미 깨끗해요'); return; }
-  p.poops = [];
-  float(r.x + r.w / 2, r.y + 40, '반짝반짝!', '#ffffff');
+  const h = here(); if (!h || !isPen(h.p)) return;
+  const { p, r } = h;
+  if (!isDirty(p)) { toast(`아직 깨끗해요. ${Math.ceil(p.cleanCD)}초 뒤에 청소할 수 있어요`); return; }
+  const fast = p.dirtyT < 5;
+  p.dirtyT = null; p.poops = []; p.cleanCD = CLEAN_EVERY[p.level];
+  float(r.x + r.w / 2, r.y + 50, fast ? '빠른 청소! +10원' : '반짝반짝!', '#ffffff');
+  if (fast) S.money += 10;
 }
-function buy(id) {
-  const a = A[id], slot = S.pens.indexOf(null);
-  if (S.pens.some(p => p && p.a === id) || slot < 0) return;
-  if (S.money < a.price) { toast(`${a.price - S.money}원이 더 필요해요`); return; }
-  S.money -= a.price; S.pens[slot] = makePen(id, 80, 0);
-  toast(`${a.emoji} ${josa(a.name, '이', '가')} 동물원에 왔어요!`);
-  renderShop(); save();
+function openPicker() {
+  const h = here(); if (!h || h.p) return;
+  const slot = h.i;
+  const list = ANIMALS.filter(a => !hasAnimal(a.id)).map(a => {
+    const row = document.createElement('div'); row.className = 'pick-row';
+    row.innerHTML = `<span class="em">${a.emoji}</span><span class="info"><b>${a.name}</b><br>${won(a.price)} · 인기 +${a.appeal} · ${a.sp === 'circus' ? '서커스' : '꾸미기'} · 배달 ${arriveTime(a)}초</span>`;
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = '사기';
+    b.disabled = S.money < a.price;
+    b.onclick = () => {
+      if (!pay(a.price)) return;
+      S.pens[slot] = { pending: a.id, t: arriveTime(a), total: arriveTime(a) };
+      toast(`${a.emoji} ${josa(a.name, '이', '가')} 오고 있어요! ${arriveTime(a)}초 뒤 도착`);
+      closeOverlay(); renderShop(); save();
+    };
+    row.appendChild(b); return row;
+  });
+  if (!list.length) { toast('모든 동물을 다 모았어요!'); return; }
+  mode = 'pick';
+  showOverlay('어떤 동물을 들일까요?', `지금 ${won(S.money)} 있어요. 비싼 동물일수록 배달이 오래 걸려요.`, '닫기', closeOverlay, list);
+}
+function addAnimal() {
+  const h = here(); if (!h || !isPen(h.p)) return;
+  const { p, r } = h, a = A[p.a];
+  if (p.count >= CAPACITY[p.level]) { toast(p.level < MAX_LEVEL ? '우리가 꽉 찼어요. 업그레이드하면 더 넣을 수 있어요' : '우리가 꽉 찼어요'); return; }
+  if (!pay(addCost(a))) return;
+  p.count++; p.critters.push(critter());
+  float(r.x + r.w / 2, r.y + 50, `${a.emoji} 한 마리 더!`, '#ffffff'); save();
+}
+function upgrade() {
+  const h = here(); if (!h || !isPen(h.p)) return;
+  const { p, r } = h;
+  if (p.level >= MAX_LEVEL) { toast('이미 최고 단계 우리예요'); return; }
+  if (!pay(upgradeCost(A[p.a], p.level))) return;
+  p.level++; if (!isDirty(p)) p.cleanCD = Math.max(p.cleanCD, CLEAN_EVERY[p.level] / 2);
+  float(r.x + r.w / 2, r.y + 50, `우리 Lv.${p.level}!`, '#fff3a8'); save();
+}
+function special() {
+  const h = here(); if (!h || !isPen(h.p)) return;
+  const { p, r, i } = h, a = A[p.a];
+  if (a.sp === 'deco') {
+    if (p.deco >= DECOS.length) { toast('더 꾸밀 자리가 없어요'); return; }
+    if (!pay(decoCost(a, p.deco))) return;
+    const d = DECOS[p.deco++];
+    float(r.x + r.w / 2, r.y + 50, `${d.e} ${d.n} 완성!`, '#ffffff'); save();
+    return;
+  }
+  if (p.circusT > 0) return;
+  if (p.circusCD > 0) { toast(`${a.name}들이 쉬는 중이에요. ${Math.ceil(p.circusCD)}초 뒤에 다시 공연해요`); return; }
+  if (p.hunger < 50) { toast('배가 고파서 공연을 못 해요. 밥부터 주세요'); return; }
+  if (isDirty(p)) { toast('우리가 더러워서 공연을 못 해요. 청소부터 해 주세요'); return; }
+  p.circusT = CIRCUS_TIME; p.circusCD = CIRCUS_CD;
+  float(r.x + r.w / 2, r.y + 50, '🎪 서커스 시작!', '#fff3a8');
+  for (let k = 0; k < 3 + p.count * 2; k++) spawnVisitor(i);
 }
 
 // ---------- visitors ----------
-function spawnVisitor() {
-  const owned = S.pens.map((p, i) => p ? i : -1).filter(i => i >= 0);
+function stopFor(i) { const r = slotRect(i); return { pen: i, x: r.x + r.w / 2 + rand(-55, 55), y: i < 4 ? rand(196, 214) : rand(288, 306) }; }
+function spawnVisitor(showPen = -1) {
+  const owned = S.pens.map((p, i) => isPen(p) ? i : -1).filter(i => i >= 0);
   if (!owned.length) return;
-  const n = Math.min(owned.length, 1 + Math.floor(Math.random() * 3));
-  const picks = owned.sort(() => Math.random() - .5).slice(0, n).sort((a, b) => slotRect(a).x - slotRect(b).x);
-  const stops = picks.map(i => { const r = slotRect(i); return { pen: i, x: r.x + r.w / 2 + rand(-40, 40), y: i < 4 ? rand(196, 212) : rand(290, 306) }; });
-  stops.push({ pen: -1, x: 830, y: rand(220, 280) });
-  const hue = Math.floor(rand(0, 360));
-  visitors.push({ x: -20, y: rand(220, 280), stops, wait: 0, shirt: `hsl(${hue} 65% 55%)`, face: '', faceT: 0, speed: rand(45, 65) });
+  let stops, x = -20, speed = rand(45, 65);
+  if (showPen >= 0) {
+    stops = [stopFor(showPen)];
+    const r = slotRect(showPen);
+    x = clamp(r.x + r.w / 2 + (Math.random() < .5 ? -1 : 1) * rand(110, 200), -20, W + 20);
+    speed = rand(90, 120);
+  } else {
+    const n = Math.min(owned.length, 1 + Math.floor(Math.random() * 3));
+    stops = owned.sort(() => Math.random() - .5).slice(0, n).sort((a, b) => slotRect(a).x - slotRect(b).x).map(stopFor);
+  }
+  const exit = { pen: -1, x: 830, y: rand(220, 280) };
+  stops.push(exit);
+  visitors.push({ x, y: rand(220, 280), stops, exit, wait: 0, shirt: `hsl(${Math.floor(rand(0, 360))} 65% 55%)`, face: '', faceT: 0, speed });
   S.total++; S.money += ENTRY_FEE;
-  float(20, 236, `입장 +${ENTRY_FEE}`, '#ffe9a8');
+  if (showPen < 0) float(20, 236, `입장 +${ENTRY_FEE}`, '#ffe9a8');
 }
 function updateVisitors(dt) {
   for (const v of visitors) {
@@ -222,19 +327,28 @@ function updateVisitors(dt) {
       v.wait -= dt;
       if (v.wait <= 0) {
         const p = S.pens[s.pen];
-        if (p) {
+        if (isPen(p)) {
           const h = happy(p);
-          if (h >= 60) { const tip = Math.round(A[p.a].appeal * h / 100); S.money += tip; float(v.x, v.y - 30, `+${tip}`, '#ffe066'); v.face = '😍'; }
-          else if (h < 35) { v.face = '😖'; }
-          else { v.face = '🙂'; }
+          let tip = 0;
+          if (v.watched) { tip = Math.round(penAppeal(p) * 1.5) + 5; v.face = '🤩'; }
+          else if (h >= 60) { tip = Math.round(penAppeal(p) * h / 100); v.face = '😍'; }
+          else v.face = h < 35 ? '😖' : '🙂';
+          if (tip) { S.money += tip; float(v.x, v.y - 30, `+${tip}`, '#ffe066'); }
           v.faceT = 1.5;
         }
-        v.stops.shift();
+        v.stops.shift(); v.watched = false;
       }
       continue;
     }
     const dx = s.x - v.x, dy = s.y - v.y, d = Math.hypot(dx, dy);
-    if (d < 3) { if (s.pen < 0) v.done = true; else v.wait = rand(1.5, 3); continue; }
+    if (d < 3) {
+      if (s.pen < 0) { v.done = true; continue; }
+      const p = S.pens[s.pen];
+      if (isPen(p) && isSmelly(p)) { v.face = '🤢'; v.faceT = 1.8; v.stops = [v.exit]; v.speed = 90; continue; }
+      if (isPen(p) && p.circusT > 0) { v.watched = true; v.wait = p.circusT + rand(0.2, 0.8); }
+      else v.wait = rand(1.5, 3);
+      continue;
+    }
     v.x += dx / d * v.speed * dt; v.y += dy / d * v.speed * dt;
   }
   visitors = visitors.filter(v => !v.done);
@@ -242,7 +356,6 @@ function updateVisitors(dt) {
 
 // ---------- zoo update ----------
 function updateZoo(dt) {
-  // keeper
   let mx = (keys.ArrowRight || keys.d ? 1 : 0) - (keys.ArrowLeft || keys.a ? 1 : 0);
   let my = (keys.ArrowDown || keys.s ? 1 : 0) - (keys.ArrowUp || keys.w ? 1 : 0);
   if (mx || my) keeper.tx = null;
@@ -258,34 +371,43 @@ function updateZoo(dt) {
     keeper.walk += dt * 10;
   } else keeper.walk = 0;
 
-  // pens
   S.pens.forEach((p, i) => {
     if (!p) return;
-    p.hunger = Math.max(0, p.hunger - dt * 1.6);
-    p.poopT -= dt;
-    if (p.poopT <= 0) { p.poopT = rand(7, 13); if (p.poops.length < MAX_POOP && p.hunger > 5) addPoop(p); }
+    if (p.pending) {
+      p.t -= dt;
+      if (p.t <= 0) {
+        const a = A[p.pending]; S.pens[i] = makePen(a.id, { hunger: 80 });
+        const r = slotRect(i); float(r.x + r.w / 2, r.y + 60, `${a.emoji} 도착!`, '#fff3a8');
+        toast(`${a.emoji} ${josa(a.name, '이', '가')} 도착했어요!`); renderShop(); save();
+      }
+      return;
+    }
+    p.hunger = Math.max(0, p.hunger - dt * (p.circusT > 0 ? 3 : 1.6));
+    p.circusCD = Math.max(0, p.circusCD - dt);
+    p.circusT = Math.max(0, p.circusT - dt);
+    if (isDirty(p)) p.dirtyT += dt;
+    else { p.cleanCD -= dt; if (p.cleanCD <= 0) { p.cleanCD = 0; p.dirtyT = 0; makeMess(p); } }
     for (const c of p.critters) {
       c.t -= dt;
-      if (c.t <= 0) { c.t = rand(1.5, 4); c.tx = rand(25, 151); c.ty = rand(55, 140); }
+      if (c.t <= 0) { c.t = rand(1.5, 4); c.tx = rand(25, 151); c.ty = rand(60, 140); }
       const dx = c.tx - c.x, dy = c.ty - c.y, d = Math.hypot(dx, dy);
       const sp = p.hunger < 25 ? 12 : 28;
       if (d > 2) { c.x += dx / d * sp * dt; c.y += dy / d * sp * dt; c.flip = dx < 0; }
     }
   });
 
-  // visitors
-  const pop = popularity();
   spawnT -= dt;
   if (spawnT <= 0) {
-    spawnT = clamp(9 / (0.5 + pop / 4), 0.9, 12) * rand(0.7, 1.3);
-    if (visitors.length < 40) spawnVisitor();
+    const smellFactor = Math.pow(0.3, smellyCount());
+    spawnT = clamp(9 / ((0.5 + popularity() / 4) * smellFactor), 0.9, 40) * rand(0.7, 1.3);
+    if (visitors.length < 45) spawnVisitor();
   }
   updateVisitors(dt);
 }
 
 // ---------- drawing ----------
-function emoji(ch, x, y, size, flip) {
-  ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1);
+function emoji(ch, x, y, size, flip, rot = 0) {
+  ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1); if (rot) ctx.rotate(rot);
   ctx.font = `${size}px ${EMOJI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(ch, 0, 0); ctx.restore();
 }
@@ -294,9 +416,9 @@ function label(text, x, y, size = 14, color = '#23301f', align = 'center') {
   ctx.fillStyle = color; ctx.fillText(text, x, y);
 }
 function rrect(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); }
-function bar(x, y, w, v, color) {
+function bar(x, y, w, v, color, low = 30) {
   rrect(x, y, w, 7, 4); ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fill();
-  rrect(x, y, Math.max(4, w * v / 100), 7, 4); ctx.fillStyle = v < 30 ? '#e0533a' : color; ctx.fill();
+  rrect(x, y, Math.max(4, w * clamp(v, 0, 100) / 100), 7, 4); ctx.fillStyle = v < low ? '#e0533a' : color; ctx.fill();
 }
 function drawPoop(x, y) {
   ctx.fillStyle = '#6b4423';
@@ -309,39 +431,66 @@ function drawGround() {
   ctx.fillStyle = '#e9d7a6'; ctx.fillRect(0, 186, W, 128);
   ctx.fillStyle = 'rgba(0,0,0,.05)';
   for (let x = 10; x < W; x += 34) { ctx.beginPath(); ctx.arc(x, 250 + Math.sin(x) * 40, 3, 0, 7); ctx.fill(); }
-  // gate & exit
   label('입구 ▶', 30, 200, 15, '#7a5a3a'); label('출구 ▶', 770, 200, 15, '#7a5a3a');
+}
+function drawEmptySlot(r, p) {
+  ctx.setLineDash([8, 6]); ctx.strokeStyle = 'rgba(60,80,40,.45)'; ctx.lineWidth = 2;
+  rrect(r.x, r.y, r.w, r.h, 12); ctx.stroke(); ctx.setLineDash([]);
+  if (!p) {
+    label('빈 우리', r.x + r.w / 2, r.y + r.h / 2 - 10, 16, 'rgba(40,60,30,.6)');
+    label('들어가서 동물 들이기', r.x + r.w / 2, r.y + r.h / 2 + 12, 12, 'rgba(40,60,30,.5)');
+    return;
+  }
+  const a = A[p.pending], cx = r.x + r.w / 2, bob = Math.sin(performance.now() / 200) * 3;
+  emoji('📦', cx, r.y + 62 + bob, 40);
+  label(`${a.emoji} ${a.name} 오는 중`, cx, r.y + 105, 15);
+  bar(r.x + 30, r.y + 120, r.w - 60, (1 - p.t / p.total) * 100, '#3f7d3a', -1);
+  label(`${Math.ceil(p.t)}초`, cx, r.y + 142, 13, '#5d6b55');
 }
 function drawPen(i) {
   const r = slotRect(i), p = S.pens[i];
-  if (!p) {
-    ctx.setLineDash([8, 6]); ctx.strokeStyle = 'rgba(60,80,40,.45)'; ctx.lineWidth = 2;
-    rrect(r.x, r.y, r.w, r.h, 12); ctx.stroke(); ctx.setLineDash([]);
-    label('빈 우리', r.x + r.w / 2, r.y + r.h / 2, 16, 'rgba(40,60,30,.55)');
-    return;
-  }
-  const a = A[p.a];
+  if (!isPen(p)) { drawEmptySlot(r, p); return; }
+  const a = A[p.a], now = performance.now(), show = p.circusT > 0;
   ctx.save(); ctx.translate(r.x, r.y);
   rrect(0, 0, r.w, r.h, 12); ctx.fillStyle = a.ground; ctx.fill();
   ctx.save(); ctx.clip();
   if (a.water) { ctx.fillStyle = '#7ec3e0'; ctx.beginPath(); ctx.ellipse(140, 125, 42, 24, 0, 0, 7); ctx.fill(); }
   if (a.tree) { ctx.fillStyle = '#7a5a3a'; ctx.fillRect(146, 70, 8, 40); ctx.fillStyle = '#4f9a45'; ctx.beginPath(); ctx.arc(150, 66, 22, 0, 7); ctx.fill(); }
   if (a.bamboo) { ctx.strokeStyle = '#4c8f3a'; ctx.lineWidth = 5; for (const bx of [140, 152, 164]) { ctx.beginPath(); ctx.moveTo(bx, 150); ctx.lineTo(bx - 4, 70); ctx.stroke(); } }
+  if (show) { ctx.fillStyle = 'rgba(255,240,170,.55)'; ctx.beginPath(); ctx.ellipse(88, 105, 62, 36, 0, 0, 7); ctx.fill(); }
   ctx.restore();
+  for (let k = 0; k < p.deco; k++) emoji(DECOS[k].e, 18 + k * 26, r.h - 16, 22);
   for (const pp of p.poops) drawPoop(pp.x, pp.y);
-  for (const c of p.critters) {
-    const bob = Math.sin(performance.now() / 180 + c.x) * 2;
-    emoji(a.emoji, c.x, c.y + bob, 34, c.flip);
+  p.critters.forEach((c, k) => {
+    if (show) {
+      const ang = now / 600 + k * Math.PI * 2 / p.count;
+      emoji(a.emoji, 88 + Math.cos(ang) * 42, 105 + Math.sin(ang) * 20 - Math.abs(Math.sin(now / 160 + k)) * 16, 32, false, Math.sin(now / 300 + k) * 0.4);
+    } else emoji(a.emoji, c.x, c.y + Math.sin(now / 180 + c.x) * 2, 32, c.flip);
+  });
+  if (show) emoji('✨', 88 + Math.cos(now / 250) * 60, 80 + Math.sin(now / 250) * 15, 18);
+  if (p.hunger < 25) emoji('💢', p.critters[0].x + 16, p.critters[0].y - 20, 18);
+  if (isSmelly(p)) {
+    ctx.strokeStyle = 'rgba(110,150,40,.75)'; ctx.lineWidth = 3;
+    for (let k = 0; k < 3; k++) {
+      const bx = 45 + k * 45, off = (now / 40 + k * 30) % 40;
+      ctx.beginPath();
+      for (let y = 0; y < 34; y += 2) ctx.lineTo(bx + Math.sin((y + off) / 5) * 5, 140 - y - off);
+      ctx.stroke();
+    }
+    emoji('🪰', 60 + Math.cos(now / 300) * 30, 90 + Math.sin(now / 200) * 20, 14);
   }
-  if (p.hunger < 25) { emoji('💢', p.critters[0].x + 16, p.critters[0].y - 20, 18); }
-  // fence
-  ctx.strokeStyle = '#7a5a3a'; ctx.lineWidth = 4; rrect(0, 0, r.w, r.h, 12); ctx.stroke();
+  ctx.strokeStyle = p.level === 3 ? '#c99a3c' : p.level === 2 ? '#a07a50' : '#7a5a3a';
+  ctx.lineWidth = 3 + p.level; rrect(0, 0, r.w, r.h, 12); ctx.stroke();
   // sign + meters
-  rrect(6, 6, r.w - 12, 34, 8); ctx.fillStyle = 'rgba(255,255,255,.82)'; ctx.fill();
-  label(a.name, 12, 23, 15, '#23301f', 'left');
-  label('밥', 64, 16, 11, '#5d6b55', 'left'); bar(80, 12, 82, p.hunger, '#e8a23a');
-  label('청결', 56, 31, 11, '#5d6b55', 'left'); bar(80, 27, 82, clean(p), '#4aa0c9');
+  rrect(6, 6, r.w - 12, 36, 8); ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fill();
+  label(a.name, 12, 17, 14, '#23301f', 'left');
+  label(`Lv.${p.level} · ${p.count}마리`, 12, 32, 11, '#5d6b55', 'left');
+  label('밥', 88, 17, 11, '#5d6b55', 'left'); bar(102, 13, 62, p.hunger, '#e8a23a');
+  if (show) label('🎪 공연 중!', 133, 32, 12, '#c2462e');
+  else if (isDirty(p)) label(isSmelly(p) ? '냄새 나요!' : `청소! ${Math.ceil(SMELL_AFTER - p.dirtyT)}초`, 133, 32, 12, '#c2462e');
+  else { label('청소', 80, 32, 11, '#5d6b55', 'left'); bar(102, 28, 62, p.cleanCD / CLEAN_EVERY[p.level] * 100, '#4aa0c9', -1); }
   ctx.restore();
+  if (isDirty(p) && !isSmelly(p) && Math.floor(now / 350) % 2) { ctx.strokeStyle = '#e0533a'; ctx.lineWidth = 3; rrect(r.x - 2, r.y - 2, r.w + 4, r.h + 4, 13); ctx.stroke(); }
 }
 function drawVisitor(v) {
   const step = v.wait > 0 ? 0 : Math.sin(performance.now() / 90 + v.x) * 2;
@@ -349,6 +498,7 @@ function drawVisitor(v) {
   ctx.fillStyle = v.shirt; rrect(v.x - 6, v.y - 4 + step, 12, 14, 4); ctx.fill();
   ctx.fillStyle = '#f3c9a0'; ctx.beginPath(); ctx.arc(v.x, v.y - 10 + step, 6, 0, 7); ctx.fill();
   if (v.faceT > 0) emoji(v.face, v.x, v.y - 28, 18);
+  else if (v.watched) emoji('👏', v.x, v.y - 26, 14);
 }
 function drawKeeper() {
   const k = keeper, step = Math.sin(k.walk) * 2.5;
@@ -374,9 +524,9 @@ function drawFloats(dt) {
 }
 function drawZoo(dt) {
   drawGround();
-  const cur = currentPen();
+  const cur = currentSlot();
   for (let i = 0; i < 8; i++) drawPen(i);
-  if (cur >= 0) { const r = slotRect(cur); ctx.strokeStyle = '#fff3a8'; ctx.lineWidth = 3; ctx.setLineDash([6, 5]); rrect(r.x - 4, r.y - 4, r.w + 8, r.h + 8, 14); ctx.stroke(); ctx.setLineDash([]); }
+  if (cur >= 0) { const r = slotRect(cur); ctx.strokeStyle = '#fff3a8'; ctx.lineWidth = 3; ctx.setLineDash([6, 5]); rrect(r.x - 5, r.y - 5, r.w + 10, r.h + 10, 15); ctx.stroke(); ctx.setLineDash([]); }
   const ents = [...visitors.map(v => ({ y: v.y, d: () => drawVisitor(v) })), { y: keeper.y, d: drawKeeper }];
   ents.sort((a, b) => a.y - b.y).forEach(e => e.d());
   drawFloats(dt);
@@ -385,6 +535,7 @@ function drawZoo(dt) {
 // ---------- baby panda minigame ----------
 const F = { x: 40, y: 60, w: 720, h: 400 }, CX = 400, CY = 270;
 function pandaIntro() {
+  if (mode !== 'zoo') return;
   const left = Math.ceil((S.cooldownEnd - Date.now()) / 1000);
   if (left > 0) { toast(`아기 판다들이 낮잠 중이에요. ${left}초 뒤에 다시 와요`); return; }
   mode = 'pandaIntro';
@@ -447,7 +598,7 @@ function endPanda() {
   mode = 'pandaResult';
   showOverlay(win ? '감시 성공!' : '아기 판다를 놓쳤어요',
     `데려온 횟수 ${PG.score}번${win ? ', 30초 버티기 보너스 40원' : ''}${mult > 1 ? ', 판다 우리 보너스 2배' : ''}. 보상 ${reward}원을 받았어요.`,
-    '동물원으로 돌아가기', () => { hideOverlay(); mode = 'zoo'; PG = null; });
+    '동물원으로 돌아가기', closeOverlay);
 }
 function drawPanda(dt) {
   ctx.fillStyle = '#7fb85c'; ctx.fillRect(0, 0, W, H);
@@ -466,7 +617,6 @@ function drawPanda(dt) {
     emoji('🐼', b.x, b.y + bob, 36, b.flip);
     if (b.state === 'run') { ctx.fillStyle = '#c2462e'; ctx.beginPath(); ctx.arc(b.x, b.y - 32, 11, 0, 7); ctx.fill(); label('!', b.x, b.y - 31, 17, '#fff'); }
   }
-  // HUD
   rrect(16, 14, 300, 30, 10); ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fill();
   label(`남은 시간 ${Math.max(0, Math.ceil(PG.t))}초`, 28, 29, 16, '#23301f', 'left');
   bar(150, 25, 150, Math.max(0, PG.t) / 30 * 100, '#3f7d3a');
@@ -478,57 +628,73 @@ function drawPanda(dt) {
 
 // ---------- overlay / UI ----------
 let ovAction = null;
-function showOverlay(title, text, btn, action) {
+function showOverlay(title, text, btn, action, list) {
   $('ovTitle').textContent = title; $('ovText').textContent = text; $('ovBtn').textContent = btn;
+  const box = $('ovList'); box.innerHTML = ''; box.hidden = !list;
+  if (list) list.forEach(el => box.appendChild(el));
   ovAction = action; $('overlay').hidden = false; $('ovBtn').focus();
 }
 function hideOverlay() { $('overlay').hidden = true; }
+function closeOverlay() { hideOverlay(); mode = 'zoo'; PG = null; }
 $('ovBtn').onclick = () => ovAction && ovAction();
 
 function renderShop() {
   $('shop').innerHTML = '';
-  const full = S.pens.indexOf(null) < 0;
   for (const a of ANIMALS) {
-    const owned = S.pens.some(p => p && p.a === a.id);
+    const p = S.pens.find(q => q && (q.a === a.id || q.pending === a.id));
     const card = document.createElement('div');
-    card.className = 'card' + (owned ? ' owned' : '');
-    card.innerHTML = `<div class="em">${a.emoji}</div><div class="nm">${a.name}</div><div class="meta">${a.price.toLocaleString()}원 · 인기 +${a.appeal}</div>`;
-    const b = document.createElement('button'); b.type = 'button'; b.id = 'buy-' + a.id;
-    b.textContent = owned ? '우리에 있어요' : full ? '빈 우리 없음' : '데려오기';
-    b.disabled = owned || full;
-    b.onclick = () => buy(a.id);
-    card.appendChild(b); $('shop').appendChild(card);
+    card.className = 'card' + (p ? ' owned' : '');
+    const st = !p ? `빈 우리에서 들이기 · 배달 ${arriveTime(a)}초` : p.pending ? '📦 배달 중' : '우리에 있어요';
+    card.innerHTML = `<div class="em">${a.emoji}</div><div class="nm">${a.name}</div>
+      <div class="meta">${won(a.price)} · 인기 +${a.appeal}</div>
+      <span class="tag ${a.sp}">${a.sp === 'circus' ? '🎪 서커스' : '🎨 꾸미기'}</span>
+      <div class="st">${st}</div>`;
+    $('shop').appendChild(card);
   }
+}
+function setBtn(id, show, html, enabled = true, cls) {
+  const b = $(id); b.hidden = !show; if (!show) return;
+  if (b.dataset.html !== html) { b.innerHTML = html; b.dataset.html = html; }
+  b.disabled = !enabled;
+  if (cls !== undefined) b.classList.toggle('urgent', cls);
 }
 function updateHud() {
   $('sMoney').textContent = Math.floor(S.money).toLocaleString();
   $('sVisitors').textContent = visitors.length;
   $('sTotal').textContent = S.total.toLocaleString();
   $('sPop').textContent = popularity().toFixed(1);
-  const i = currentPen(), inZoo = mode === 'zoo';
-  $('btnFeed').disabled = !inZoo || i < 0; $('btnClean').disabled = !inZoo || i < 0;
+  $('sSmell').hidden = smellyCount() === 0;
+  const h = here(), p = h && h.p, pen = isPen(p) ? p : null, a = pen && A[pen.a];
+  setBtn('btnBuy', !!h && !p, '🐾 동물 들이기 <small>(B)</small>');
+  setBtn('btnFeed', !!pen, `🥕 밥주기 ${pen ? FEED_COST * pen.count : ''}원 <small>(F)</small>`, pen && pen.hunger < 95);
+  setBtn('btnClean', !!pen, pen && isDirty(pen) ? '🧹 지금 청소! <small>(C)</small>' : `🧹 청소 ${pen ? Math.ceil(pen.cleanCD) : ''}초 후 <small>(C)</small>`, pen && isDirty(pen), pen && isDirty(pen));
+  setBtn('btnAdd', !!pen, pen && pen.count >= CAPACITY[pen.level] ? `➕ 꽉 참 ${pen.count}/${CAPACITY[pen.level]}` : `➕ 한 마리 더 ${pen ? addCost(a) : ''}원 <small>(N)</small>`, pen && pen.count < CAPACITY[pen.level]);
+  setBtn('btnUpgrade', !!pen, pen && pen.level >= MAX_LEVEL ? '🔨 최고 단계' : `🔨 Lv.${pen ? pen.level + 1 : ''} 업그레이드 ${pen ? upgradeCost(a, pen.level) : ''}원 <small>(U)</small>`, pen && pen.level < MAX_LEVEL);
+  if (pen && a.sp === 'deco') setBtn('btnSpecial', true, pen.deco >= DECOS.length ? '🎨 꾸미기 완료' : `🎨 ${DECOS[pen.deco].n} 꾸미기 ${decoCost(a, pen.deco)}원 <small>(G)</small>`, pen.deco < DECOS.length);
+  else if (pen) setBtn('btnSpecial', true, pen.circusT > 0 ? '🎪 공연 중' : pen.circusCD > 0 ? `🎪 서커스 ${Math.ceil(pen.circusCD)}초 후` : '🎪 서커스 공연 <small>(G)</small>', pen.circusT <= 0 && pen.circusCD <= 0);
+  else setBtn('btnSpecial', false);
   const left = Math.ceil((S.cooldownEnd - Date.now()) / 1000);
-  $('btnPanda').disabled = !inZoo;
+  $('btnPanda').disabled = mode !== 'zoo';
   $('btnPanda').textContent = left > 0 ? `🐼 낮잠 중 (${left}초)` : '🐼 아기 판다 감시하기';
-  if (i >= 0) {
-    const p = S.pens[i];
-    $('targetText').textContent = `${A[p.a].emoji} ${A[p.a].name} 우리 · 배부름 ${Math.round(p.hunger)} · 똥 ${p.poops.length}개`;
-  } else $('targetText').textContent = '우리 안으로 걸어가면 밥주기·청소를 할 수 있어요.';
-  // keep shop buttons in sync with money without rebuilding
-  for (const a of ANIMALS) {
-    const b = $('buy-' + a.id);
-    if (b && !b.disabled) b.textContent = S.money >= a.price ? '데려오기' : `${(a.price - Math.floor(S.money)).toLocaleString()}원 부족`;
-  }
+  let t = '우리 안으로 걸어가면 할 수 있는 일이 버튼으로 나와요.';
+  if (h && !p) t = `빈 우리예요. 동물을 사면 배달돼요. (지금 ${won(S.money)})`;
+  else if (h && p.pending) t = `${A[p.pending].emoji} ${A[p.pending].name} 배달 중… ${Math.ceil(p.t)}초 남았어요.`;
+  else if (pen) t = `${a.emoji} ${a.name} 우리 Lv.${pen.level} · ${pen.count}/${CAPACITY[pen.level]}마리 · 배부름 ${Math.round(pen.hunger)}${pen.deco ? ' · 장식 ' + DECOS.slice(0, pen.deco).map(d => d.e).join('') : ''}`;
+  $('targetText').textContent = t;
 }
 
 $('btnFeed').onclick = feed;
 $('btnClean').onclick = cleanPen;
+$('btnBuy').onclick = openPicker;
+$('btnAdd').onclick = addAnimal;
+$('btnUpgrade').onclick = upgrade;
+$('btnSpecial').onclick = special;
 $('btnPanda').onclick = pandaIntro;
 let resetArmed = false;
 $('btnReset').onclick = () => {
   if (!resetArmed) { resetArmed = true; $('btnReset').textContent = '정말 처음부터? 한 번 더 누르세요'; setTimeout(() => { resetArmed = false; $('btnReset').textContent = '처음부터 다시 하기'; }, 3000); return; }
   resetArmed = false; $('btnReset').textContent = '처음부터 다시 하기';
-  S = freshState(); visitors = []; floats = []; mode = 'zoo'; PG = null; hideOverlay(); renderShop(); save();
+  S = freshState(); visitors = []; floats = []; closeOverlay(); renderShop(); save();
 };
 
 cv.addEventListener('pointerdown', e => {
@@ -537,13 +703,14 @@ cv.addEventListener('pointerdown', e => {
   if (mode === 'zoo') { keeper.tx = clamp(x, 12, W - 12); keeper.ty = clamp(y, 20, H - 8); }
   else if (mode === 'panda') tapPanda(x, y);
 });
+const ACTIONS = { f: feed, 1: feed, c: cleanPen, 2: cleanPen, b: openPicker, n: addAnimal, u: upgrade, g: special };
 window.addEventListener('keydown', e => {
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) e.preventDefault();
   if (e.target.tagName === 'BUTTON' && (k === ' ' || k === 'Enter')) return;
+  if (k === 'Escape' && mode === 'pick') { closeOverlay(); return; }
   keys[k] = true;
-  if (k === 'f' || k === '1') feed();
-  if (k === 'c' || k === '2') cleanPen();
+  if (ACTIONS[k] && !e.repeat) ACTIONS[k]();
 });
 window.addEventListener('keyup', e => { keys[e.key.length === 1 ? e.key.toLowerCase() : e.key] = false; });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
