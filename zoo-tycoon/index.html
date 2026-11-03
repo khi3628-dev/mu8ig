@@ -58,6 +58,7 @@ button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 button.alt { background: var(--sun); color: var(--ink); box-shadow: 0 3px 0 #b88515; }
 button.urgent { background: var(--bad); box-shadow: 0 3px 0 #8a2f1e; }
 button.ghost { background: var(--card); color: var(--ink); border: 1px solid var(--line); box-shadow: none; }
+.target b { color: var(--ink); font-family: var(--font-display); font-weight: 400; }
 .target { color: var(--muted); font-size: .95rem; min-width: 0; flex: 1 1 100%; }
 .hint { margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.6; }
 kbd { font-family: var(--font-body); background: var(--card); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; font-size: .85em; }
@@ -102,15 +103,13 @@ h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.3rem; marg
 
   <div class="actions">
     <button id="btnBuy" type="button" hidden>🐾 동물 들이기 <small>(B)</small></button>
-    <button id="btnFeed" type="button" hidden>🥕 밥주기 <small>(F)</small></button>
-    <button id="btnClean" type="button" hidden>🧹 청소 <small>(C)</small></button>
     <button id="btnAdd" type="button" hidden>➕ 한 마리 더 <small>(N)</small></button>
     <button id="btnUpgrade" type="button" hidden>🔨 우리 업그레이드 <small>(U)</small></button>
     <button id="btnSpecial" type="button" class="alt" hidden>🎪 <small>(G)</small></button>
     <button id="btnPanda" type="button" class="alt">🐼 아기 판다 감시하기</button>
     <span class="target" id="targetText"></span>
   </div>
-  <p class="hint">화면을 누르거나 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>·방향키로 사육사를 움직이고, 우리 안에 들어가면 할 수 있는 일이 버튼으로 나와요. 빈 우리에 들어가 동물을 사면 잠시 뒤 배달돼요. 청소 시간이 되면 바로 치워 주세요. 15초 넘게 두면 냄새가 나서 관람객이 오지 않아요.</p>
+  <p class="hint">화면을 누르거나 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>·방향키로 사육사를 움직이고, 길 가운데 <b>먹이 창고 🥕</b>, <b>청소도구함 🧹</b>, <b>정원 도구함 🌱</b>에 서 있으면 도구를 챙기고, 그 도구를 들고 우리 안에서 기다리면 밥주기·청소·가꾸기를 해요. 청소 시간이 되면 바로 치워 주세요. 15초 넘게 두면 냄새가 나서 관람객이 오지 않아요. 빈 우리에 들어가면 동물을 살 수 있고, 잠시 뒤 배달돼요.</p>
 
   <h3>동물 도감</h3>
   <div class="shop" id="shop"></div>
@@ -123,6 +122,13 @@ const W = 800, H = 500, FEED_COST = 5, ENTRY_FEE = 5, SMELL_AFTER = 15, MAX_LEVE
 const CAPACITY = [0, 2, 3, 4];          // animals per pen by level
 const CLEAN_EVERY = [0, 30, 38, 46];    // seconds between cleanings by level
 const CIRCUS_TIME = 10, CIRCUS_CD = 45;
+const TOOLS = {
+  food:   { e: '🥕', name: '먹이 창고',   tool: '먹이 바구니', verb: '밥주는 중',   lines: ['먹이', '창고'],   time: 2,   x: 280 },
+  clean:  { e: '🧹', name: '청소도구함', tool: '청소 도구',   verb: '청소하는 중', lines: ['청소', '도구함'], time: 2.5, x: 400 },
+  garden: { e: '🌱', name: '정원 도구함', tool: '정원 도구',   verb: '가꾸는 중',   lines: ['정원', '도구함'], time: 2.5, x: 520 },
+};
+const EQUIP_TIME = 1.2, STATION_Y = 250, GARDEN_DECAY = 0.7, WEEDS = [[30, 150], [62, 146], [96, 152], [128, 148], [160, 150], [20, 110]];
+const stationRect = t => ({ x: TOOLS[t].x - 40, y: STATION_Y - 24, w: 80, h: 48 });
 const DECOS = [{ e: '🌷', n: '꽃밭' }, { e: '🎾', n: '장난감' }, { e: '🏡', n: '예쁜 집' }];
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 const ANIMALS = [
@@ -156,26 +162,26 @@ const $ = id => document.getElementById(id);
 
 let S; // game state
 const isPen = p => p && !p.pending;
-const critter = () => ({ x: rand(30, 146), y: rand(60, 140), tx: rand(30, 146), ty: rand(60, 140), t: 0 });
+const critter = () => ({ x: rand(30, 146), y: rand(72, 140), tx: rand(30, 146), ty: rand(72, 140), t: 0 });
 function makePen(id, o = {}) {
   const level = clamp(o.level || 1, 1, MAX_LEVEL);
   const pen = { a: id, level, count: clamp(o.count || 1, 1, CAPACITY[level]), deco: clamp(o.deco || 0, 0, DECOS.length),
-    hunger: o.hunger ?? 100, cleanCD: o.cleanCD ?? CLEAN_EVERY[level], dirtyT: o.dirtyT ?? null,
+    hunger: o.hunger ?? 100, garden: o.garden ?? 100, cleanCD: o.cleanCD ?? CLEAN_EVERY[level], dirtyT: o.dirtyT ?? null,
     circusT: 0, circusCD: o.circusCD || 0, critters: [], poops: [] };
   for (let i = 0; i < pen.count; i++) pen.critters.push(critter());
   if (pen.dirtyT !== null) makeMess(pen);
   return pen;
 }
-function makeMess(p) { p.poops = Array.from({ length: 2 + p.count }, () => ({ x: rand(20, 156), y: rand(50, 145) })); }
+function makeMess(p) { p.poops = Array.from({ length: 2 + p.count }, () => ({ x: rand(20, 156), y: rand(64, 145) })); }
 function freshState() {
   const pens = Array(8).fill(null);
-  pens[0] = makePen('rabbit', { hunger: 70, cleanCD: 10 });
+  pens[0] = makePen('rabbit', { hunger: 60, garden: 55, cleanCD: 12 });
   return { money: 100, total: 0, pens, cooldownEnd: 0 };
 }
 function serialize() {
   return { money: S.money, total: S.total, cooldownEnd: S.cooldownEnd,
     pens: S.pens.map(p => !p ? null : p.pending ? { pending: p.pending, t: p.t } :
-      { a: p.a, level: p.level, count: p.count, deco: p.deco, hunger: p.hunger, cleanCD: p.cleanCD, dirtyT: p.dirtyT, circusCD: p.circusCD }) };
+      { a: p.a, level: p.level, count: p.count, deco: p.deco, hunger: p.hunger, garden: p.garden, cleanCD: p.cleanCD, dirtyT: p.dirtyT, circusCD: p.circusCD }) };
 }
 function deserialize(d) {
   if (!d || !Array.isArray(d.pens)) return null;
@@ -183,7 +189,7 @@ function deserialize(d) {
     if (!p) return null;
     if (p.pending && A[p.pending]) return { pending: p.pending, t: clamp(+p.t || 0, 0, 60), total: arriveTime(A[p.pending]) };
     if (!A[p.a]) return null;
-    const o = { level: +p.level || 1, count: +p.count || 1, deco: +p.deco || 0, hunger: clamp(+p.hunger || 0, 0, 100),
+    const o = { level: +p.level || 1, count: +p.count || 1, deco: +p.deco || 0, hunger: clamp(+p.hunger || 0, 0, 100), garden: clamp(+(p.garden ?? 100) || 0, 0, 100),
       circusCD: +p.circusCD || 0, cleanCD: p.cleanCD ?? undefined, dirtyT: p.dirtyT ?? null };
     if (p.poops > 0 && p.dirtyT === undefined) { o.cleanCD = 0; o.dirtyT = 0; } // save from the first version
     return makePen(p.a, o);
@@ -194,7 +200,7 @@ function deserialize(d) {
 function save() { try { localStorage.setItem('sunflower-zoo', JSON.stringify(serialize())); } catch (e) {} }
 function load() { try { return deserialize(JSON.parse(localStorage.getItem('sunflower-zoo'))); } catch (e) { return null; } }
 
-const keeper = { x: 400, y: 250, tx: null, ty: null, dir: 1, walk: 0 };
+const keeper = { x: 150, y: 250, tx: null, ty: null, dir: 1, walk: 0, carry: null, work: null };
 let visitors = [], floats = [], spawnT = 2, saveT = 5, mode = 'zoo', PG = null;
 const keys = {};
 
@@ -202,7 +208,7 @@ const keys = {};
 const isDirty = p => p.dirtyT !== null;
 const isSmelly = p => isDirty(p) && p.dirtyT >= SMELL_AFTER;
 const cleanScore = p => isSmelly(p) ? 0 : isDirty(p) ? 40 : 100;
-const happy = p => (p.hunger + cleanScore(p)) / 2;
+const happy = p => p.hunger * 0.4 + cleanScore(p) * 0.4 + p.garden * 0.2;
 const penAppeal = p => A[p.a].appeal * (1 + 0.5 * (p.count - 1)) * (1 + 0.25 * p.deco) * (1 + 0.1 * (p.level - 1));
 const popularity = () => S.pens.reduce((s, p) => s + (isPen(p) ? penAppeal(p) * happy(p) / 100 : 0), 0);
 const smellyCount = () => S.pens.filter(p => isPen(p) && isSmelly(p)).length;
@@ -226,22 +232,39 @@ function here() { const i = currentSlot(); return mode === 'zoo' && i >= 0 ? { i
 function pay(cost) { if (S.money < cost) { toast(`${won(cost - S.money)}이 더 필요해요`); return false; } S.money -= cost; return true; }
 
 // ---------- actions ----------
-function feed() {
-  const h = here(); if (!h || !isPen(h.p)) return;
-  const { p, r } = h, cost = FEED_COST * p.count;
-  if (p.hunger >= 95) { toast(`${josa(A[p.a].name, '은', '는')} 지금 배불러요`); return; }
-  if (!pay(cost)) return;
-  p.hunger = 100;
-  float(r.x + r.w / 2, r.y + 50, `냠냠! -${cost}원`, '#ffe9a8');
+// keeper jobs: stand in a station to pick up its tool, then stand in a pen that needs it
+const needs = (p, t) => t === 'food' ? p.hunger < 90 : t === 'clean' ? isDirty(p) : p.garden < 85;
+function finishJob(i, t) {
+  const p = S.pens[i], r = slotRect(i), x = r.x + r.w / 2, y = r.y + 60;
+  if (t === 'food') {
+    const cost = FEED_COST * p.count;
+    if (!pay(cost)) return;
+    p.hunger = 100; float(x, y, `냠냠! -${cost}원`, '#ffe9a8');
+  } else if (t === 'clean') {
+    const fast = p.dirtyT < 5;
+    p.dirtyT = null; p.poops = []; p.cleanCD = CLEAN_EVERY[p.level];
+    if (fast) S.money += 10;
+    float(x, y, fast ? '빠른 청소! +10원' : '반짝반짝!', '#ffffff');
+  } else { p.garden = 100; float(x, y, '🌿 싱그러워졌어요!', '#e8f5d8'); }
 }
-function cleanPen() {
-  const h = here(); if (!h || !isPen(h.p)) return;
-  const { p, r } = h;
-  if (!isDirty(p)) { toast(`아직 깨끗해요. ${Math.ceil(p.cleanCD)}초 뒤에 청소할 수 있어요`); return; }
-  const fast = p.dirtyT < 5;
-  p.dirtyT = null; p.poops = []; p.cleanCD = CLEAN_EVERY[p.level];
-  float(r.x + r.w / 2, r.y + 50, fast ? '빠른 청소! +10원' : '반짝반짝!', '#ffffff');
-  if (fast) S.money += 10;
+function stationAt() {
+  for (const t in TOOLS) { const r = stationRect(t); if (keeper.x > r.x && keeper.x < r.x + r.w && keeper.y > r.y && keeper.y < r.y + r.h) return t; }
+  return null;
+}
+let moneyWarned = 0;
+function updateWork(dt) {
+  const st = stationAt(), i = currentSlot(), p = i >= 0 ? S.pens[i] : null, t = keeper.carry;
+  let job = null;
+  if (st && st !== t) job = { key: 'st:' + st, need: EQUIP_TIME, done: () => { keeper.carry = st; float(keeper.x, keeper.y - 40, `${TOOLS[st].e} ${TOOLS[st].tool} 챙김!`, '#ffffff'); } };
+  else if (t && isPen(p) && needs(p, t)) {
+    if (t === 'food' && S.money < FEED_COST * p.count) {
+      if (performance.now() - moneyWarned > 3000) { moneyWarned = performance.now(); toast('먹이 살 돈이 부족해요'); }
+    } else job = { key: `pen:${i}:${t}`, need: TOOLS[t].time, done: () => finishJob(i, t) };
+  }
+  if (!job) { keeper.work = null; return; }
+  if (!keeper.work || keeper.work.key !== job.key) keeper.work = { key: job.key, t: 0, need: job.need };
+  keeper.work.t += dt;
+  if (keeper.work.t >= job.need) { job.done(); keeper.work = null; }
 }
 function openPicker() {
   const h = here(); if (!h || h.p) return;
@@ -383,13 +406,14 @@ function updateZoo(dt) {
       return;
     }
     p.hunger = Math.max(0, p.hunger - dt * (p.circusT > 0 ? 3 : 1.6));
+    p.garden = Math.max(0, p.garden - dt * GARDEN_DECAY);
     p.circusCD = Math.max(0, p.circusCD - dt);
     p.circusT = Math.max(0, p.circusT - dt);
     if (isDirty(p)) p.dirtyT += dt;
     else { p.cleanCD -= dt; if (p.cleanCD <= 0) { p.cleanCD = 0; p.dirtyT = 0; makeMess(p); } }
     for (const c of p.critters) {
       c.t -= dt;
-      if (c.t <= 0) { c.t = rand(1.5, 4); c.tx = rand(25, 151); c.ty = rand(60, 140); }
+      if (c.t <= 0) { c.t = rand(1.5, 4); c.tx = rand(25, 151); c.ty = rand(72, 140); }
       const dx = c.tx - c.x, dy = c.ty - c.y, d = Math.hypot(dx, dy);
       const sp = p.hunger < 25 ? 12 : 28;
       if (d > 2) { c.x += dx / d * sp * dt; c.y += dy / d * sp * dt; c.flip = dx < 0; }
@@ -403,6 +427,7 @@ function updateZoo(dt) {
     if (visitors.length < 45) spawnVisitor();
   }
   updateVisitors(dt);
+  updateWork(dt);
 }
 
 // ---------- drawing ----------
@@ -432,6 +457,14 @@ function drawGround() {
   ctx.fillStyle = 'rgba(0,0,0,.05)';
   for (let x = 10; x < W; x += 34) { ctx.beginPath(); ctx.arc(x, 250 + Math.sin(x) * 40, 3, 0, 7); ctx.fill(); }
   label('입구 ▶', 30, 200, 15, '#7a5a3a'); label('출구 ▶', 770, 200, 15, '#7a5a3a');
+  for (const t in TOOLS) {
+    const r = stationRect(t), held = keeper.carry === t;
+    rrect(r.x, r.y, r.w, r.h, 10); ctx.fillStyle = held ? '#fff8d6' : '#f7efd9'; ctx.fill();
+    ctx.strokeStyle = held ? '#c99a3c' : '#a07a50'; ctx.lineWidth = held ? 3 : 2; ctx.stroke();
+    emoji(TOOLS[t].e, r.x + 18, r.y + r.h / 2, 22);
+    const [l1, l2] = TOOLS[t].lines;
+    label(l1, r.x + 52, r.y + 17, 12, '#7a5a3a'); label(l2, r.x + 52, r.y + 32, 12, '#7a5a3a');
+  }
 }
 function drawEmptySlot(r, p) {
   ctx.setLineDash([8, 6]); ctx.strokeStyle = 'rgba(60,80,40,.45)'; ctx.lineWidth = 2;
@@ -459,6 +492,13 @@ function drawPen(i) {
   if (a.bamboo) { ctx.strokeStyle = '#4c8f3a'; ctx.lineWidth = 5; for (const bx of [140, 152, 164]) { ctx.beginPath(); ctx.moveTo(bx, 150); ctx.lineTo(bx - 4, 70); ctx.stroke(); } }
   if (show) { ctx.fillStyle = 'rgba(255,240,170,.55)'; ctx.beginPath(); ctx.ellipse(88, 105, 62, 36, 0, 0, 7); ctx.fill(); }
   ctx.restore();
+  const weeds = Math.min(WEEDS.length, Math.floor((100 - p.garden) / 15));
+  ctx.strokeStyle = p.garden < 35 ? '#9a8a3a' : '#5f8f35'; ctx.lineWidth = 2;
+  for (let k = 0; k < weeds; k++) {
+    const [wx, wy] = WEEDS[k];
+    for (const d of [-5, 0, 5]) { ctx.beginPath(); ctx.moveTo(wx, wy); ctx.quadraticCurveTo(wx + d, wy - 10, wx + d * 1.8, wy - 18); ctx.stroke(); }
+  }
+  if (p.garden < 35) emoji('🥀', 150, 72, 16);
   for (let k = 0; k < p.deco; k++) emoji(DECOS[k].e, 18 + k * 26, r.h - 16, 22);
   for (const pp of p.poops) drawPoop(pp.x, pp.y);
   p.critters.forEach((c, k) => {
@@ -482,13 +522,14 @@ function drawPen(i) {
   ctx.strokeStyle = p.level === 3 ? '#c99a3c' : p.level === 2 ? '#a07a50' : '#7a5a3a';
   ctx.lineWidth = 3 + p.level; rrect(0, 0, r.w, r.h, 12); ctx.stroke();
   // sign + meters
-  rrect(6, 6, r.w - 12, 36, 8); ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fill();
-  label(a.name, 12, 17, 14, '#23301f', 'left');
-  label(`Lv.${p.level} · ${p.count}마리`, 12, 32, 11, '#5d6b55', 'left');
-  label('밥', 88, 17, 11, '#5d6b55', 'left'); bar(102, 13, 62, p.hunger, '#e8a23a');
-  if (show) label('🎪 공연 중!', 133, 32, 12, '#c2462e');
-  else if (isDirty(p)) label(isSmelly(p) ? '냄새 나요!' : `청소! ${Math.ceil(SMELL_AFTER - p.dirtyT)}초`, 133, 32, 12, '#c2462e');
-  else { label('청소', 80, 32, 11, '#5d6b55', 'left'); bar(102, 28, 62, p.cleanCD / CLEAN_EVERY[p.level] * 100, '#4aa0c9', -1); }
+  rrect(6, 6, r.w - 12, 50, 8); ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fill();
+  label(a.name, 12, 19, 14, '#23301f', 'left');
+  label(`Lv.${p.level} · ${p.count}마리`, 12, 36, 11, '#5d6b55', 'left');
+  if (show) label('🎪 공연 중', 12, 49, 11, '#c2462e', 'left');
+  label('밥', 88, 16, 11, '#5d6b55', 'left'); bar(110, 12, 54, p.hunger, '#e8a23a');
+  label('정원', 82, 30, 11, '#5d6b55', 'left'); bar(110, 26, 54, p.garden, '#62a845');
+  if (isDirty(p)) label(isSmelly(p) ? '냄새 나요!' : `청소! ${Math.ceil(SMELL_AFTER - p.dirtyT)}초`, 137, 45, 12, '#c2462e');
+  else { label('청소', 82, 45, 11, '#5d6b55', 'left'); bar(110, 41, 54, p.cleanCD / CLEAN_EVERY[p.level] * 100, '#4aa0c9', -1); }
   ctx.restore();
   if (isDirty(p) && !isSmelly(p) && Math.floor(now / 350) % 2) { ctx.strokeStyle = '#e0533a'; ctx.lineWidth = 3; rrect(r.x - 2, r.y - 2, r.w + 4, r.h + 4, 13); ctx.stroke(); }
 }
@@ -510,6 +551,12 @@ function drawKeeper() {
   ctx.fillStyle = '#c99a3c'; ctx.beginPath(); ctx.ellipse(k.x, k.y - 25, 14, 4, 0, 0, 7); ctx.fill();
   ctx.beginPath(); ctx.arc(k.x, k.y - 27, 7, Math.PI, 0); ctx.fill();
   label('사육사', k.x, k.y + 28, 12, '#23301f');
+  if (k.carry) emoji(TOOLS[k.carry].e, k.x + 15 * k.dir, k.y + 2, 18, k.dir < 0, Math.sin(k.walk) * 0.2);
+  if (k.work) {
+    const f = clamp(k.work.t / k.work.need, 0, 1);
+    ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(35,48,31,.35)'; ctx.beginPath(); ctx.arc(k.x - 24 * k.dir, k.y - 20, 10, 0, 7); ctx.stroke();
+    ctx.strokeStyle = '#f2b632'; ctx.beginPath(); ctx.arc(k.x - 24 * k.dir, k.y - 20, 10, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); ctx.stroke();
+  }
   if (k.tx !== null) { ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(k.tx, k.ty, 8, 0, 7); ctx.stroke(); }
 }
 function drawFloats(dt) {
@@ -666,8 +713,6 @@ function updateHud() {
   $('sSmell').hidden = smellyCount() === 0;
   const h = here(), p = h && h.p, pen = isPen(p) ? p : null, a = pen && A[pen.a];
   setBtn('btnBuy', !!h && !p, '🐾 동물 들이기 <small>(B)</small>');
-  setBtn('btnFeed', !!pen, `🥕 밥주기 ${pen ? FEED_COST * pen.count : ''}원 <small>(F)</small>`, pen && pen.hunger < 95);
-  setBtn('btnClean', !!pen, pen && isDirty(pen) ? '🧹 지금 청소! <small>(C)</small>' : `🧹 청소 ${pen ? Math.ceil(pen.cleanCD) : ''}초 후 <small>(C)</small>`, pen && isDirty(pen), pen && isDirty(pen));
   setBtn('btnAdd', !!pen, pen && pen.count >= CAPACITY[pen.level] ? `➕ 꽉 참 ${pen.count}/${CAPACITY[pen.level]}` : `➕ 한 마리 더 ${pen ? addCost(a) : ''}원 <small>(N)</small>`, pen && pen.count < CAPACITY[pen.level]);
   setBtn('btnUpgrade', !!pen, pen && pen.level >= MAX_LEVEL ? '🔨 최고 단계' : `🔨 Lv.${pen ? pen.level + 1 : ''} 업그레이드 ${pen ? upgradeCost(a, pen.level) : ''}원 <small>(U)</small>`, pen && pen.level < MAX_LEVEL);
   if (pen && a.sp === 'deco') setBtn('btnSpecial', true, pen.deco >= DECOS.length ? '🎨 꾸미기 완료' : `🎨 ${DECOS[pen.deco].n} 꾸미기 ${decoCost(a, pen.deco)}원 <small>(G)</small>`, pen.deco < DECOS.length);
@@ -676,15 +721,17 @@ function updateHud() {
   const left = Math.ceil((S.cooldownEnd - Date.now()) / 1000);
   $('btnPanda').disabled = mode !== 'zoo';
   $('btnPanda').textContent = left > 0 ? `🐼 낮잠 중 (${left}초)` : '🐼 아기 판다 감시하기';
-  let t = '우리 안으로 걸어가면 할 수 있는 일이 버튼으로 나와요.';
+  const st = mode === 'zoo' ? stationAt() : null, k = keeper;
+  let t = '도구함에 서 있으면 도구를 챙기고, 우리 안에서 기다리면 일을 해요.';
+  if (st) t = k.carry === st ? `${TOOLS[st].e} ${TOOLS[st].tool}를 이미 들고 있어요.` : `${TOOLS[st].e} ${TOOLS[st].name}: 잠깐 기다리면 ${TOOLS[st].tool}를 챙겨요…`;
   if (h && !p) t = `빈 우리예요. 동물을 사면 배달돼요. (지금 ${won(S.money)})`;
   else if (h && p.pending) t = `${A[p.pending].emoji} ${A[p.pending].name} 배달 중… ${Math.ceil(p.t)}초 남았어요.`;
-  else if (pen) t = `${a.emoji} ${a.name} 우리 Lv.${pen.level} · ${pen.count}/${CAPACITY[pen.level]}마리 · 배부름 ${Math.round(pen.hunger)}${pen.deco ? ' · 장식 ' + DECOS.slice(0, pen.deco).map(d => d.e).join('') : ''}`;
-  $('targetText').textContent = t;
+  else if (pen) t = `${a.emoji} ${a.name} 우리 Lv.${pen.level} · ${pen.count}/${CAPACITY[pen.level]}마리 · 배부름 ${Math.round(pen.hunger)} · 정원 ${Math.round(pen.garden)}${pen.deco ? ' · 장식 ' + DECOS.slice(0, pen.deco).map(d => d.e).join('') : ''}`;
+  if (pen && k.carry) t += k.work ? ` — ${TOOLS[k.carry].e} ${TOOLS[k.carry].verb}…` : needs(pen, k.carry) ? '' : ` — ${TOOLS[k.carry].e} 지금은 ${k.carry === 'clean' ? `청소할 게 없어요 (${Math.ceil(pen.cleanCD)}초 후)` : k.carry === 'food' ? '배불러요' : '정원이 싱그러워요'}`;
+  else if (pen && !k.carry) t += ' — 도구가 없어요. 도구함에 다녀오세요';
+  $('targetText').innerHTML = `<b>손에 든 것: ${k.carry ? TOOLS[k.carry].e + ' ' + TOOLS[k.carry].tool : '없음'}</b> · ` + t.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
 }
 
-$('btnFeed').onclick = feed;
-$('btnClean').onclick = cleanPen;
 $('btnBuy').onclick = openPicker;
 $('btnAdd').onclick = addAnimal;
 $('btnUpgrade').onclick = upgrade;
@@ -694,7 +741,7 @@ let resetArmed = false;
 $('btnReset').onclick = () => {
   if (!resetArmed) { resetArmed = true; $('btnReset').textContent = '정말 처음부터? 한 번 더 누르세요'; setTimeout(() => { resetArmed = false; $('btnReset').textContent = '처음부터 다시 하기'; }, 3000); return; }
   resetArmed = false; $('btnReset').textContent = '처음부터 다시 하기';
-  S = freshState(); visitors = []; floats = []; closeOverlay(); renderShop(); save();
+  S = freshState(); visitors = []; floats = []; keeper.carry = null; keeper.work = null; closeOverlay(); renderShop(); save();
 };
 
 cv.addEventListener('pointerdown', e => {
@@ -703,7 +750,7 @@ cv.addEventListener('pointerdown', e => {
   if (mode === 'zoo') { keeper.tx = clamp(x, 12, W - 12); keeper.ty = clamp(y, 20, H - 8); }
   else if (mode === 'panda') tapPanda(x, y);
 });
-const ACTIONS = { f: feed, 1: feed, c: cleanPen, 2: cleanPen, b: openPicker, n: addAnimal, u: upgrade, g: special };
+const ACTIONS = { b: openPicker, n: addAnimal, u: upgrade, g: special };
 window.addEventListener('keydown', e => {
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) e.preventDefault();
