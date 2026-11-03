@@ -27,30 +27,29 @@
 html, body { height: 100%; overflow: hidden; }
 body { margin: 0; background: var(--frame); color: var(--ink); font-family: var(--font-body); overscroll-behavior: none; }
 #game {
-  position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; transform-origin: 0 0;
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr) auto; gap: 6px 10px;
-  padding: max(6px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));
-  background: var(--frame); user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; transform-origin: 0 0; overflow: hidden;
+  --pt: max(6px, env(safe-area-inset-top, 0px)); --pr: max(10px, env(safe-area-inset-right, 0px));
+  --pb: max(6px, env(safe-area-inset-bottom, 0px)); --pl: max(10px, env(safe-area-inset-left, 0px));
+  background: #8cc56a; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
 /* turned 90° clockwise: game top sits on the screen's right edge, game left on the screen's top edge */
-#game.rot { padding: max(6px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px)) max(10px, env(safe-area-inset-top, 0px)); }
-.hud { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; min-width: 0; }
-h1 { font-family: var(--font-display); font-weight: 400; font-size: 1.25rem; margin: 0 6px 0 0; color: #f6e7a8; white-space: nowrap; }
+#game.rot { --pt: max(6px, env(safe-area-inset-right, 0px)); --pr: max(10px, env(safe-area-inset-bottom, 0px)); --pb: max(6px, env(safe-area-inset-left, 0px)); --pl: max(10px, env(safe-area-inset-top, 0px)); }
+canvas { position: absolute; left: 0; top: 0; display: block; touch-action: none; }
+.hud { position: absolute; top: var(--pt); left: var(--pl); right: var(--pr); display: flex; align-items: center; gap: 6px; min-width: 0; z-index: 2; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: 1.25rem; margin: 0 6px 0 0; color: #fff; white-space: nowrap; text-shadow: 0 1px 0 var(--leaf-dark), 0 0 6px rgba(35,48,31,.6); }
 #game.narrow h1 { display: none; }
 .stats { display: flex; gap: 5px; min-width: 0; overflow: hidden; flex: 1; }
-.chip { background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-variant-numeric: tabular-nums; font-size: .85rem; white-space: nowrap; }
+.chip { background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-variant-numeric: tabular-nums; font-size: .85rem; white-space: nowrap; box-shadow: 0 2px 0 rgba(35,48,31,.25); }
 .chip b { font-family: var(--font-display); font-weight: 400; font-size: 1rem; }
 .chip.money b { color: #a8740a; }
 .chip.warn { background: var(--bad); border-color: var(--bad); color: #fff; }
 #game.narrow .chip.total { display: none; }
-.stage { grid-column: 2; grid-row: 2; position: relative; min-width: 0; min-height: 0; }
-canvas { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: block; border-radius: 12px; border: 3px solid var(--bark); background: #8cc56a; touch-action: none; }
-.side { grid-row: 2; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; min-height: 0; }
-.side.left { grid-column: 1; }
-.side.right { grid-column: 3; width: clamp(110px, 16vw, 170px); }
+.side { position: absolute; bottom: calc(var(--pb) + 34px); display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; z-index: 2; }
+.side.left { left: var(--pl); }
+.side.right { right: var(--pr); width: clamp(110px, 16vw, 170px); }
 #game.rot .side.right { width: clamp(110px, 16vh, 170px); }
 .side.right button { width: 100%; font-size: .9rem; padding: 8px 8px; line-height: 1.25; word-break: keep-all; text-wrap: balance; }
-.status { grid-column: 1 / -1; color: #dfe8cf; font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.status { position: absolute; left: var(--pl); right: var(--pr); bottom: var(--pb); z-index: 2; color: #f3f6ea; background: rgba(35,48,31,.72); border-radius: 999px; padding: 3px 12px; font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .status b { color: #f6e7a8; font-family: var(--font-display); font-weight: 400; }
 .dpad { display: grid; grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(2, 44px); gap: 4px; grid-template-areas: ". up ." "left down right"; }
 .dpad button { padding: 0; font-size: 1.15rem; touch-action: none; background: var(--bark); box-shadow: 0 3px 0 #553d26; }
@@ -109,9 +108,7 @@ h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.2rem; marg
     </div>
   </div>
 
-  <div class="stage" id="stage">
-    <canvas id="cv" width="800" height="500" aria-label="동물원 화면. 방향키로 사육사를 움직입니다."></canvas>
-  </div>
+  <canvas id="cv" width="800" height="500" aria-label="동물원 화면. 방향키로 사육사를 움직입니다."></canvas>
 
   <div class="side right">
     <button id="btnSpecial" type="button" class="alt" hidden>🎪 <small>(G)</small></button>
@@ -179,7 +176,11 @@ const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 const game = document.getElementById('game');
 let rotated = false;
-// fit the game box to the screen in landscape; on a portrait screen turn the box 90° clockwise
+// fit the game box to the screen in landscape (a portrait screen turns the box 90° clockwise).
+// The canvas fills the whole box; the 800×500 zoo is fitted between the floating controls and the
+// grass, walkway and trees carry on out to the screen edges.
+const VIEW = { gw: W, gh: H, res: 1, s: 1, ox: 0, oy: 0, decor: [] };
+const visibleW = el => el.offsetParent ? el.offsetWidth : 0;
 function layout() {
   const vw = window.innerWidth, vh = window.innerHeight;
   rotated = vh > vw * 1.05;
@@ -188,12 +189,43 @@ function layout() {
   game.classList.toggle('narrow', gw < 780);
   game.style.width = gw + 'px'; game.style.height = gh + 'px';
   game.style.transform = rotated ? `translateX(${vw}px) rotate(90deg)` : 'none';
-  const box = document.getElementById('stage');
-  const s = Math.max(0.1, Math.min((box.clientWidth - 6) / W, (box.clientHeight - 6) / H));
-  cv.style.width = W * s + 'px'; cv.style.height = H * s + 'px';
-  const res = Math.min(3, (window.devicePixelRatio || 1) * Math.max(1, s));
-  if (cv.width !== Math.round(W * res)) { cv.width = Math.round(W * res); cv.height = Math.round(H * res); }
-  ctx.setTransform(res, 0, 0, res, 0, 0);
+  const hud = document.querySelector('.hud'), status = $('targetText');
+  const left = document.querySelector('.side.left'), right = document.querySelector('.side.right');
+  const top = hud.offsetTop + hud.offsetHeight + 6, bottom = gh - status.offsetTop + 6;
+  const lw = visibleW(left) ? left.offsetLeft + left.offsetWidth + 8 : 8;
+  const rw = visibleW(right) ? gw - right.offsetLeft + 8 : 8;
+  const side = Math.max(lw, rw); // same room on both sides keeps the zoo centred
+  const aw = Math.max(50, gw - 2 * side), ah = Math.max(50, gh - top - bottom);
+  const sc = Math.min(aw / W, ah / H);
+  Object.assign(VIEW, { gw, gh, s: sc, ox: (gw - W * sc) / 2, oy: top + (ah - H * sc) / 2 });
+  VIEW.res = Math.min(2.5, window.devicePixelRatio || 1);
+  cv.style.width = gw + 'px'; cv.style.height = gh + 'px';
+  const bw = Math.round(gw * VIEW.res), bh = Math.round(gh * VIEW.res);
+  if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
+  // trees and flowers on the grass around the zoo, kept off the zoo and the walkway
+  const wx0 = VIEW.ox - 14, wx1 = VIEW.ox + W * sc + 14, wy0 = VIEW.oy - 14, wy1 = VIEW.oy + H * sc + 14;
+  const py0 = VIEW.oy + 186 * sc, py1 = VIEW.oy + 314 * sc, size = Math.max(18, 34 * sc);
+  VIEW.decor = [];
+  for (let n = 0, tries = 0; n < 70 && tries < 900; tries++) {
+    const x = Math.random() * gw, y = Math.random() * gh;
+    if (x > wx0 - size / 2 && x < wx1 + size / 2 && y > wy0 - size / 2 && y < wy1 + size / 2) continue;
+    if (y > py0 - size / 2 && y < py1 + size / 2) continue;
+    if (VIEW.decor.some(d => Math.hypot(d.x - x, d.y - y) < size * 1.1)) continue;
+    const r = Math.random();
+    VIEW.decor.push({ x, y, e: r < .45 ? '🌳' : r < .65 ? '🌲' : r < .8 ? '🌼' : r < .92 ? '🌷' : '🪨', z: r < .65 ? size : size * .6 });
+    n++;
+  }
+  VIEW.decor.sort((a, b) => a.y - b.y);
+}
+function drawBackdrop() {
+  const v = VIEW;
+  ctx.setTransform(v.res, 0, 0, v.res, 0, 0);
+  ctx.fillStyle = PG ? '#7fb85c' : '#8cc56a'; ctx.fillRect(0, 0, v.gw, v.gh);
+  if (!PG) {
+    ctx.fillStyle = '#e9d7a6'; ctx.fillRect(0, v.oy + 186 * v.s, v.gw, 128 * v.s);
+    for (const d of v.decor) emoji(d.e, d.x, d.y, d.z);
+  }
+  ctx.setTransform(v.res * v.s, 0, 0, v.res * v.s, v.res * v.ox, v.res * v.oy);
 }
 window.addEventListener('resize', layout);
 window.addEventListener('orientationchange', () => setTimeout(layout, 150));
@@ -371,17 +403,18 @@ function stopFor(i) { const r = slotRect(i); return { pen: i, x: r.x + r.w / 2 +
 function spawnVisitor(showPen = -1) {
   const owned = S.pens.map((p, i) => isPen(p) ? i : -1).filter(i => i >= 0);
   if (!owned.length) return;
-  let stops, x = -20, speed = rand(45, 65);
+  const edgeL = -VIEW.ox / VIEW.s - 20, edgeR = (VIEW.gw - VIEW.ox) / VIEW.s + 20; // screen edges in zoo units
+  let stops, x = edgeL, speed = rand(45, 65);
   if (showPen >= 0) {
     stops = [stopFor(showPen)];
     const r = slotRect(showPen);
-    x = clamp(r.x + r.w / 2 + (Math.random() < .5 ? -1 : 1) * rand(110, 200), -20, W + 20);
+    x = clamp(r.x + r.w / 2 + (Math.random() < .5 ? -1 : 1) * rand(110, 200), edgeL, edgeR);
     speed = rand(90, 120);
   } else {
     const n = Math.min(owned.length, 1 + Math.floor(Math.random() * 3));
     stops = owned.sort(() => Math.random() - .5).slice(0, n).sort((a, b) => slotRect(a).x - slotRect(b).x).map(stopFor);
   }
-  const exit = { pen: -1, x: 830, y: rand(220, 280) };
+  const exit = { pen: -1, x: edgeR, y: rand(220, 280) };
   stops.push(exit);
   visitors.push({ x, y: rand(220, 280), stops, exit, wait: 0, shirt: `hsl(${Math.floor(rand(0, 360))} 65% 55%)`, face: '', faceT: 0, speed });
   S.total++; S.money += ENTRY_FEE;
@@ -794,8 +827,9 @@ $('btnReset').onclick = () => {
 
 cv.addEventListener('pointerdown', e => {
   const r = cv.getBoundingClientRect();
-  const x = rotated ? (e.clientY - r.top) / r.height * W : (e.clientX - r.left) / r.width * W;
-  const y = rotated ? (r.right - e.clientX) / r.width * H : (e.clientY - r.top) / r.height * H;
+  const cx = rotated ? (e.clientY - r.top) / r.height * VIEW.gw : (e.clientX - r.left) / r.width * VIEW.gw;
+  const cy = rotated ? (r.right - e.clientX) / r.width * VIEW.gh : (e.clientY - r.top) / r.height * VIEW.gh;
+  const x = (cx - VIEW.ox) / VIEW.s, y = (cy - VIEW.oy) / VIEW.s;
   if (mode === 'panda') tapPanda(x, y);
 });
 const ACTIONS = { g: special };
@@ -825,6 +859,7 @@ window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; }
 let last = performance.now(), hudT = 0;
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  drawBackdrop();
   if (mode === 'zoo') { updateZoo(dt); drawZoo(dt); }
   else if (mode === 'panda') { updatePanda(dt); if (PG) drawPanda(dt); }
   else if (PG) drawPanda(0); else drawZoo(0);
