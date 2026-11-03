@@ -154,6 +154,27 @@ const EQUIP_TIME = 1.2, STATION_Y = 250, GARDEN_DECAY = 0.7, WEEDS = [[28, 124],
 const PAD_TIME = 1.5;
 const stationRect = t => ({ x: TOOLS[t].x - 40, y: STATION_Y - 24, w: 80, h: 48 });
 const DECOS = [{ e: '🌷', n: '꽃밭' }, { e: '🎾', n: '장난감' }, { e: '🏡', n: '예쁜 집' }];
+// drawn art (sprite atlases + ground textures). Anything not loaded yet falls back to the emoji drawing.
+const ATLAS = {"keeper":{"down":[[0,0,119,153],[121,0,118,152],[241,0,119,153],[362,0,118,152]],"left":[[482,0,99,149],[583,0,98,149],[683,0,98,149],[783,0,98,149]],"right":[[883,0,105,165],[0,167,106,165],[108,167,106,165],[216,167,107,164]],"tools":[[325,167,113,154],[440,167,110,160],[552,167,125,156],[679,167,113,155]]},"babypanda":{"a":[[0,0,125,158],[127,0,147,139],[276,0,141,157]],"b":[[419,0,156,154],[577,0,158,155],[737,0,159,157]],"c":[[0,160,141,132],[143,160,169,144],[314,160,166,131]]},"savanna":{"giraffe":[[0,0,96,147],[98,0,96,145],[196,0,104,144],[302,0,108,148],[412,0,93,154],[507,0,94,149]],"lion":[[603,0,104,131],[709,0,115,134],[826,0,117,126],[0,156,120,144],[122,156,120,156],[244,156,116,155]]},"jungle":{"monkey":[[0,0,109,126],[111,0,114,127],[227,0,120,134],[349,0,108,147],[459,0,113,157],[574,0,97,198]],"zebra":[[673,0,105,145],[780,0,120,138],[902,0,120,149],[0,200,109,161],[111,200,111,174],[224,200,107,154]]}};
+const IMG = {};
+['keeper', 'babypanda', 'savanna', 'jungle', 'tex-grass', 'tex-sand', 'floor-savanna', 'floor-ice', 'floor-jungle', 'floor-dirt', 'floor-bamboo', 'floor-meadow']
+  .forEach(n => { const im = new Image(); im.onload = () => { im.ok = true; PAT = null; }; im.src = `assets/${n}.webp`; IMG[n] = im; });
+const ready = n => IMG[n] && IMG[n].ok;
+// animal sprite rows: frames are idle, walk, eat, happy, hungry, special (decor / circus)
+const ANIM_ART = { giraffe: ['savanna', 'giraffe'], lion: ['savanna', 'lion'], monkey: ['jungle', 'monkey'], zebra: ['jungle', 'zebra'] };
+const FLOOR = { rabbit: 'floor-meadow', penguin: 'floor-ice', monkey: 'floor-jungle', zebra: 'floor-savanna', giraffe: 'floor-savanna', lion: 'floor-savanna', elephant: 'floor-dirt', panda: 'floor-bamboo' };
+// draw one atlas frame with its bottom centre at (x, y), h world units tall
+function sprite(sheet, rect, x, y, h, flip) {
+  const [sx, sy, sw, sh] = rect, w = sw * h / sh;
+  ctx.save(); ctx.translate(x, y); if (flip) ctx.scale(-1, 1);
+  ctx.drawImage(IMG[sheet], sx, sy, sw, sh, -w / 2, -h, w, h); ctx.restore();
+}
+let PAT = null;
+function patterns() {
+  if (PAT || !ready('tex-grass') || !ready('tex-sand')) return PAT;
+  PAT = { grass: ctx.createPattern(IMG['tex-grass'], 'repeat'), sand: ctx.createPattern(IMG['tex-sand'], 'repeat') };
+  return PAT;
+}
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 const ANIMALS = [
   { id: 'rabbit',   name: '토끼',   emoji: '🐰', price: 0,    appeal: 2,  sp: 'deco',   ground: '#b9de8a' },
@@ -220,9 +241,11 @@ function layout() {
 function drawBackdrop() {
   const v = VIEW;
   ctx.setTransform(v.res, 0, 0, v.res, 0, 0);
-  ctx.fillStyle = PG ? '#7fb85c' : '#8cc56a'; ctx.fillRect(0, 0, v.gw, v.gh);
+  const pat = patterns();
+  const tex = (pt, img, size) => { pt.setTransform(new DOMMatrix().scale(size / IMG[img].width)); return pt; };
+  ctx.fillStyle = pat && !PG ? tex(pat.grass, 'tex-grass', 300 * v.s) : PG ? '#7fb85c' : '#8cc56a'; ctx.fillRect(0, 0, v.gw, v.gh);
   if (!PG) {
-    ctx.fillStyle = '#e9d7a6'; ctx.fillRect(0, v.oy + 186 * v.s, v.gw, 128 * v.s);
+    ctx.fillStyle = pat ? tex(pat.sand, 'tex-sand', 260 * v.s) : '#e9d7a6'; ctx.fillRect(0, v.oy + 186 * v.s, v.gw, 128 * v.s);
     for (const d of v.decor) emoji(d.e, d.x, d.y, d.z);
   }
   ctx.setTransform(v.res * v.s, 0, 0, v.res * v.s, v.res * v.ox, v.res * v.oy);
@@ -322,7 +345,7 @@ function finishJob(i, t) {
   if (t === 'food') {
     const cost = FEED_COST * p.count;
     if (!pay(cost)) return;
-    p.hunger = 100; float(x, y, `냠냠! -${cost}원`, '#ffe9a8');
+    p.hunger = 100; p.fedT = 2.5; float(x, y, `냠냠! -${cost}원`, '#ffe9a8');
   } else if (t === 'clean') {
     const fast = p.dirtyT < 5;
     p.dirtyT = null; p.poops = []; p.cleanCD = CLEAN_EVERY[p.level];
@@ -464,6 +487,7 @@ function updateZoo(dt) {
     keeper.x = clamp(keeper.x + mx / len * 170 * dt, 12, W - 12);
     keeper.y = clamp(keeper.y + my / len * 170 * dt, 20, H - 8);
     if (mx) keeper.dir = Math.sign(mx);
+    keeper.face = mx > 0 ? 'right' : mx < 0 ? 'left' : 'down';
     keeper.walk += dt * 10;
   } else keeper.walk = 0;
 
@@ -481,6 +505,7 @@ function updateZoo(dt) {
     p.hunger = Math.max(0, p.hunger - dt * (p.circusT > 0 ? 3 : 1.6));
     p.garden = Math.max(0, p.garden - dt * GARDEN_DECAY);
     p.circusCD = Math.max(0, p.circusCD - dt);
+    p.fedT = Math.max(0, (p.fedT || 0) - dt);
     p.circusT = Math.max(0, p.circusT - dt);
     if (isDirty(p)) p.dirtyT += dt;
     else { p.cleanCD -= dt; if (p.cleanCD <= 0) { p.cleanCD = 0; p.dirtyT = 0; makeMess(p); } }
@@ -525,10 +550,12 @@ function drawPoop(x, y) {
   ctx.beginPath(); ctx.ellipse(x + 1, y - 5, 3.5, 2.6, 0, 0, 7); ctx.fill();
 }
 function drawGround() {
-  ctx.fillStyle = '#8cc56a'; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#e9d7a6'; ctx.fillRect(0, 186, W, 128);
+  if (!patterns()) { // the backdrop already painted the textured ground
+    ctx.fillStyle = '#8cc56a'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#e9d7a6'; ctx.fillRect(0, 186, W, 128);
+  }
   ctx.fillStyle = 'rgba(0,0,0,.05)';
-  for (let x = 10; x < W; x += 34) { ctx.beginPath(); ctx.arc(x, 250 + Math.sin(x) * 40, 3, 0, 7); ctx.fill(); }
+  if (!patterns()) for (let x = 10; x < W; x += 34) { ctx.beginPath(); ctx.arc(x, 250 + Math.sin(x) * 40, 3, 0, 7); ctx.fill(); }
   label('입구 ▶', 30, 200, 15, '#7a5a3a'); label('출구 ▶', 770, 200, 15, '#7a5a3a');
   for (const t in TOOLS) {
     const r = stationRect(t), held = keeper.carry === t;
@@ -573,10 +600,14 @@ function drawPen(i) {
   const a = A[p.a], now = performance.now(), show = p.circusT > 0;
   ctx.save(); ctx.translate(r.x, r.y);
   rrect(0, 0, r.w, r.h, 12); ctx.fillStyle = a.ground; ctx.fill();
+  const floor = ready(FLOOR[a.id]) ? IMG[FLOOR[a.id]] : null;
   ctx.save(); ctx.clip();
+  if (floor) ctx.drawImage(floor, 0, 0, r.w, r.h);
+  else {
   if (a.water) { ctx.fillStyle = '#7ec3e0'; ctx.beginPath(); ctx.ellipse(140, 104, 36, 18, 0, 0, 7); ctx.fill(); }
   if (a.tree) { ctx.fillStyle = '#7a5a3a'; ctx.fillRect(146, 70, 8, 40); ctx.fillStyle = '#4f9a45'; ctx.beginPath(); ctx.arc(150, 66, 22, 0, 7); ctx.fill(); }
   if (a.bamboo) { ctx.strokeStyle = '#4c8f3a'; ctx.lineWidth = 5; for (const bx of [140, 152, 164]) { ctx.beginPath(); ctx.moveTo(bx, 124); ctx.lineTo(bx - 4, 64); ctx.stroke(); } }
+  }
   if (show) { ctx.fillStyle = 'rgba(255,240,170,.55)'; ctx.beginPath(); ctx.ellipse(88, 105, 62, 36, 0, 0, 7); ctx.fill(); }
   ctx.restore();
   const weeds = Math.min(WEEDS.length, Math.floor((100 - p.garden) / 15));
@@ -588,14 +619,32 @@ function drawPen(i) {
   if (p.garden < 35) emoji('🥀', 150, 72, 16);
   for (let k = 0; k < p.deco; k++) emoji(DECOS[k].e, 18 + k * 24, 72, 18);
   for (const pp of p.poops) drawPoop(pp.x, pp.y);
-  p.critters.forEach((c, k) => {
+  const art = ANIM_ART[a.id] && ready(ANIM_ART[a.id][0]) ? ANIM_ART[a.id] : null;
+  const frames = art && ATLAS[art[0]][art[1]], SIZE = 46;
+  const poseFor = (c, k, moving) => {
+    if (show) return 5;
+    if (p.hunger < 25) return 4;
+    if (p.fedT > 0) return 2;
+    if (moving) return Math.floor(now / 220 + k) % 2;
+    if (a.sp === 'deco' && p.deco > 0) return 5;
+    return happy(p) >= 80 && Math.floor(now / 1700 + k * 1.3) % 4 === 0 ? 3 : 0;
+  };
+  if (frames) p.critters.forEach((c, k) => {
+    const moving = Math.hypot(c.tx - c.x, c.ty - c.y) > 2, f = frames[poseFor(c, k, moving)];
+    const h = SIZE * f[3] / frames[0][3];
+    if (show) {
+      const ang = now / 600 + k * Math.PI * 2 / p.count;
+      sprite(art[0], f, 88 + Math.cos(ang) * 42, 122 + Math.sin(ang) * 14 - Math.abs(Math.sin(now / 160 + k)) * 14, h, false);
+    } else sprite(art[0], f, c.x, c.y + 18, h, moving && !c.flip);
+  });
+  else p.critters.forEach((c, k) => {
     if (show) {
       const ang = now / 600 + k * Math.PI * 2 / p.count;
       emoji(a.emoji, 88 + Math.cos(ang) * 42, 105 + Math.sin(ang) * 20 - Math.abs(Math.sin(now / 160 + k)) * 16, 32, false, Math.sin(now / 300 + k) * 0.4);
     } else emoji(a.emoji, c.x, c.y + Math.sin(now / 180 + c.x) * 2, 32, c.flip);
   });
   if (show) emoji('✨', 88 + Math.cos(now / 250) * 60, 80 + Math.sin(now / 250) * 15, 18);
-  if (p.hunger < 25) emoji('💢', p.critters[0].x + 16, p.critters[0].y - 20, 18);
+  if (p.hunger < 25 && !frames) emoji('💢', p.critters[0].x + 16, p.critters[0].y - 20, 18);
   if (isSmelly(p)) {
     ctx.strokeStyle = 'rgba(110,150,40,.75)'; ctx.lineWidth = 3;
     for (let k = 0; k < 3; k++) {
@@ -630,6 +679,14 @@ function drawVisitor(v) {
 }
 function drawKeeper() {
   const k = keeper, step = Math.sin(k.walk) * 2.5;
+  if (ready('keeper')) {
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(k.x, k.y + 17, 13, 4, 0, 0, 7); ctx.fill();
+    const K = ATLAS.keeper, moving = k.walk > 0;
+    const f = k.carry ? K.tools[{ food: 0, clean: 1, garden: 2 }[k.carry]] : K[k.face || 'down'][moving ? Math.floor(k.walk / 2) % 4 : 0];
+    const bob = k.carry && moving ? -Math.abs(Math.sin(k.walk / 1.6)) * 3 : 0;
+    sprite('keeper', f, k.x, k.y + 18 + bob, 54 * f[3] / K.down[0][3], false);
+    label('사육사', k.x, k.y + 28, 12, '#23301f');
+  } else {
   ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(k.x, k.y + 16, 12, 4, 0, 0, 7); ctx.fill();
   ctx.fillStyle = '#3d4a2a'; ctx.fillRect(k.x - 6, k.y + 6, 4, 10 + step); ctx.fillRect(k.x + 2, k.y + 6, 4, 10 - step);
   ctx.fillStyle = '#5b7f2e'; rrect(k.x - 10, k.y - 10, 20, 20, 6); ctx.fill();
@@ -639,6 +696,7 @@ function drawKeeper() {
   ctx.beginPath(); ctx.arc(k.x, k.y - 27, 7, Math.PI, 0); ctx.fill();
   label('사육사', k.x, k.y + 28, 12, '#23301f');
   if (k.carry) emoji(TOOLS[k.carry].e, k.x + 15 * k.dir, k.y + 2, 18, k.dir < 0, Math.sin(k.walk) * 0.2);
+  }
   if (k.work) {
     const f = clamp(k.work.t / k.work.need, 0, 1);
     ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(35,48,31,.35)'; ctx.beginPath(); ctx.arc(k.x - 24 * k.dir, k.y - 20, 10, 0, 7); ctx.stroke();
@@ -739,7 +797,9 @@ function drawPanda(dt) {
   ctx.fillStyle = '#88c6e0'; ctx.beginPath(); ctx.ellipse(650, 390, 70, 38, 0, 0, 7); ctx.fill();
   ctx.strokeStyle = '#4c8f3a'; ctx.lineWidth = 6;
   for (const [bx, by] of [[90, 120], [110, 130], [690, 130], [705, 118], [100, 420]]) { ctx.beginPath(); ctx.moveTo(bx, by + 40); ctx.lineTo(bx - 6, by - 40); ctx.stroke(); }
-  emoji('🐼', CX, CY + 110, 56); label('엄마 판다 쿨쿨', CX, CY + 148, 14, '#2c5c29');
+  if (ready('babypanda')) sprite('babypanda', ATLAS.babypanda.b[2], CX, CY + 140, 92, false);
+  else emoji('🐼', CX, CY + 110, 56);
+  label('엄마 판다 쿨쿨', CX, CY + 148, 14, '#2c5c29');
   ctx.strokeStyle = '#7a5a3a'; ctx.lineWidth = 7; ctx.setLineDash([16, 8]); rrect(F.x, F.y, F.w, F.h, 18); ctx.stroke(); ctx.setLineDash([]);
   for (const b of [...PG.babies].sort((a, c) => a.y - c.y)) {
     if (b.state === 'run') {
@@ -747,8 +807,13 @@ function drawPanda(dt) {
       ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.tx, b.ty); ctx.stroke(); ctx.setLineDash([]);
     }
     const bob = Math.sin(performance.now() / (b.state === 'run' ? 70 : 200) + b.tx) * 3;
-    emoji('🐼', b.x, b.y + bob, 36, b.flip);
-    if (b.state === 'run') { ctx.fillStyle = '#c2462e'; ctx.beginPath(); ctx.arc(b.x, b.y - 32, 11, 0, 7); ctx.fill(); label('!', b.x, b.y - 31, 17, '#fff'); }
+    if (ready('babypanda')) {
+      const P = ATLAS.babypanda, moving = Math.hypot(b.tx - b.x, b.ty - b.y) > 3;
+      const f = b.state === 'run' ? P.b[0] : b.state === 'back' ? P.b[1] : moving ? P.a[Math.floor(performance.now() / 260) % 2] : P.a[0];
+      // the running cub faces right, the others face left
+      sprite('babypanda', f, b.x, b.y + 24 + bob, 62 * f[3] / P.a[0][3], b.state === 'run' ? b.flip : !b.flip && moving);
+    } else emoji('🐼', b.x, b.y + bob, 36, b.flip);
+    if (b.state === 'run') { const my = b.y - (ready('babypanda') ? 50 : 32); ctx.fillStyle = '#c2462e'; ctx.beginPath(); ctx.arc(b.x, my, 11, 0, 7); ctx.fill(); label('!', b.x, my + 1, 17, '#fff'); }
   }
   rrect(16, 14, 300, 30, 10); ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fill();
   label(`남은 시간 ${Math.max(0, Math.ceil(PG.t))}초`, 28, 29, 16, '#23301f', 'left');
