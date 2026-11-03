@@ -94,6 +94,7 @@ h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.2rem; marg
       <span class="chip">🧍 <b id="sVisitors">0</b>명</span>
       <span class="chip total">누적 <b id="sTotal">0</b>명</span>
       <span class="chip">⭐ <b id="sPop">0</b></span>
+      <span class="chip" id="sStaff" hidden>👷 <b id="sStaffN">0</b>명 · -<b id="sWage">0</b>원/분</span>
       <span class="chip warn" id="sSmell" hidden title="냄새 나는 우리가 있어서 관람객이 줄었어요">🤢 냄새!</span>
     </div>
     <button id="btnMenu" type="button" class="ghost">☰ 메뉴</button>
@@ -129,7 +130,7 @@ h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.2rem; marg
     <div class="panel menu">
       <div class="top"><h2>메뉴</h2><button id="btnMenuClose" type="button">게임으로 돌아가기</button></div>
       <h3>하는 법</h3>
-      <p class="hint">키보드 방향키나 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, 휴대폰은 왼쪽 ▲◀▶▼ 버튼으로 사육사를 움직여요. 길 가운데 <b>먹이 창고 🥕</b>, <b>청소도구함 🧹</b>, <b>정원 도구함 🌱</b>에 서 있으면 도구를 챙기고, 그 도구를 들고 우리 안에서 기다리면 밥주기·청소·가꾸기를 해요. 청소 시간이 되면 바로 치워 주세요. 15초 넘게 두면 냄새가 나서 관람객이 오지 않아요. 우리 아래쪽 <b>⬆ 업그레이드</b>·<b>➕ 한 마리</b> 발판, 빈 우리의 <b>구입</b> 발판에 잠깐 서 있으면 돈을 내고 바로 진행돼요. 다시 사려면 발판에서 내려왔다가 올라가세요. 꾸미기·서커스는 오른쪽 버튼이나 <kbd>G</kbd>로 해요.</p>
+      <p class="hint">키보드 방향키나 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, 휴대폰은 왼쪽 ▲◀▶▼ 버튼으로 사육사를 움직여요. 길 가운데 <b>먹이 창고 🥕</b>, <b>청소도구함 🧹</b>, <b>정원 도구함 🌱</b>에 서 있으면 도구를 챙기고, 그 도구를 들고 우리 안에서 기다리면 밥주기·청소·가꾸기를 해요. 청소 시간이 되면 바로 치워 주세요. 15초 넘게 두면 냄새가 나서 관람객이 오지 않아요. 우리 아래쪽 <b>⬆ 업그레이드</b>·<b>➕ 한 마리</b>·<b>🔧 설비</b>(급식기 → 배수 시설 → 스프링클러) 발판, 도구함 위의 <b>👷 직원 고용</b> 발판(월급이 계속 나가요), 빈 우리의 <b>구입</b> 발판에 잠깐 서 있으면 돈을 내고 바로 진행돼요. 다시 사려면 발판에서 내려왔다가 올라가세요. 꾸미기·서커스는 오른쪽 버튼이나 <kbd>G</kbd>로 해요.</p>
       <h3>동물 도감</h3>
       <div class="shop" id="shop"></div>
       <div><button id="btnReset" type="button" class="ghost">처음부터 다시 하기</button></div>
@@ -150,6 +151,22 @@ const TOOLS = {
   clean:  { e: '🧹', name: '청소도구함', tool: '청소 도구',   verb: '청소하는 중', lines: ['청소', '도구함'], time: 2.5, x: 400 },
   garden: { e: '🌱', name: '정원 도구함', tool: '정원 도구',   verb: '가꾸는 중',   lines: ['정원', '도구함'], time: 2.5, x: 520 },
 };
+// staff: hired on pads above each tool station, paid a wage per minute while working
+const STAFF = {
+  food:   { name: '먹이 담당', wage: 15, cost: [300, 900] },
+  clean:  { name: '청소 담당', wage: 20, cost: [400, 1000] },
+  garden: { name: '정원사',   wage: 10, cost: [250, 800] },
+};
+const MAX_STAFF = 2, STAFF_SPEED = 80;
+// pen facilities, installed in this order from the 🔧 pad
+const FAC = [
+  { e: '🥣', n: '급식기', base: 120, k: 0.3, what: '배고파지는 속도 절반' },
+  { e: '🚰', n: '배수 시설', base: 160, k: 0.35, what: '청소 주기 1.5배, 냄새까지 25초' },
+  { e: '💦', n: '스프링클러', base: 100, k: 0.25, what: '정원이 4배 느리게 줄어요' },
+];
+const facCost = (a, n) => Math.round((FAC[n].base + a.price * FAC[n].k) / 10) * 10;
+const cleanEvery = p => CLEAN_EVERY[p.level] * (p.fac >= 2 ? 1.5 : 1);
+const smellAfter = p => p.fac >= 2 ? 25 : SMELL_AFTER;
 const EQUIP_TIME = 1.2, STATION_Y = 250, GARDEN_DECAY = 0.7, WEEDS = [[28, 124], [60, 120], [96, 126], [128, 122], [160, 124], [20, 94]];
 const PAD_TIME = 1.5;
 const stationRect = t => ({ x: TOOLS[t].x - 40, y: STATION_Y - 24, w: 80, h: 48 });
@@ -271,8 +288,8 @@ const isPen = p => p && !p.pending;
 const critter = () => ({ x: rand(30, 146), y: rand(72, 116), tx: rand(30, 146), ty: rand(72, 116), t: 0 });
 function makePen(id, o = {}) {
   const level = clamp(o.level || 1, 1, MAX_LEVEL);
-  const pen = { a: id, level, count: clamp(o.count || 1, 1, CAPACITY[level]), deco: clamp(o.deco || 0, 0, DECOS.length),
-    hunger: o.hunger ?? 100, garden: o.garden ?? 100, cleanCD: o.cleanCD ?? CLEAN_EVERY[level], dirtyT: o.dirtyT ?? null,
+  const pen = { a: id, level, count: clamp(o.count || 1, 1, CAPACITY[level]), deco: clamp(o.deco || 0, 0, DECOS.length), fac: clamp(o.fac || 0, 0, FAC.length),
+    hunger: o.hunger ?? 100, garden: o.garden ?? 100, cleanCD: o.cleanCD ?? CLEAN_EVERY[level] * ((o.fac || 0) >= 2 ? 1.5 : 1), dirtyT: o.dirtyT ?? null,
     circusT: 0, circusCD: o.circusCD || 0, critters: [], poops: [] };
   for (let i = 0; i < pen.count; i++) pen.critters.push(critter());
   if (pen.dirtyT !== null) makeMess(pen);
@@ -282,12 +299,12 @@ function makeMess(p) { p.poops = Array.from({ length: 2 + p.count }, () => ({ x:
 function freshState() {
   const pens = Array(8).fill(null);
   pens[0] = makePen('rabbit', { hunger: 60, garden: 55, cleanCD: 12 });
-  return { money: 100, total: 0, pens, cooldownEnd: 0 };
+  return { money: 100, total: 0, pens, cooldownEnd: 0, staff: { food: 0, clean: 0, garden: 0 } };
 }
 function serialize() {
-  return { money: S.money, total: S.total, cooldownEnd: S.cooldownEnd,
+  return { money: S.money, total: S.total, cooldownEnd: S.cooldownEnd, staff: S.staff,
     pens: S.pens.map(p => !p ? null : p.pending ? { pending: p.pending, t: p.t } :
-      { a: p.a, level: p.level, count: p.count, deco: p.deco, hunger: p.hunger, garden: p.garden, cleanCD: p.cleanCD, dirtyT: p.dirtyT, circusCD: p.circusCD }) };
+      { a: p.a, level: p.level, count: p.count, deco: p.deco, fac: p.fac, hunger: p.hunger, garden: p.garden, cleanCD: p.cleanCD, dirtyT: p.dirtyT, circusCD: p.circusCD }) };
 }
 function deserialize(d) {
   if (!d || !Array.isArray(d.pens)) return null;
@@ -295,13 +312,15 @@ function deserialize(d) {
     if (!p) return null;
     if (p.pending && A[p.pending]) return { pending: p.pending, t: clamp(+p.t || 0, 0, 60), total: arriveTime(A[p.pending]) };
     if (!A[p.a]) return null;
-    const o = { level: +p.level || 1, count: +p.count || 1, deco: +p.deco || 0, hunger: clamp(+p.hunger || 0, 0, 100), garden: clamp(+(p.garden ?? 100) || 0, 0, 100),
+    const o = { level: +p.level || 1, count: +p.count || 1, deco: +p.deco || 0, fac: +p.fac || 0, hunger: clamp(+p.hunger || 0, 0, 100), garden: clamp(+(p.garden ?? 100) || 0, 0, 100),
       circusCD: +p.circusCD || 0, cleanCD: p.cleanCD ?? undefined, dirtyT: p.dirtyT ?? null };
     if (p.poops > 0 && p.dirtyT === undefined) { o.cleanCD = 0; o.dirtyT = 0; } // save from the first version
     return makePen(p.a, o);
   });
   while (pens.length < 8) pens.push(null);
-  return { money: +d.money || 0, total: +d.total || 0, cooldownEnd: +d.cooldownEnd || 0, pens };
+  const st = d.staff || {}, staff = {};
+  for (const r in STAFF) staff[r] = clamp(Math.floor(+st[r] || 0), 0, MAX_STAFF);
+  return { money: +d.money || 0, total: +d.total || 0, cooldownEnd: +d.cooldownEnd || 0, pens, staff };
 }
 function save() { try { localStorage.setItem('sunflower-zoo', JSON.stringify(serialize())); } catch (e) {} }
 function load() { try { return deserialize(JSON.parse(localStorage.getItem('sunflower-zoo'))); } catch (e) { return null; } }
@@ -312,7 +331,7 @@ const keys = {};
 
 // ---------- pen stats ----------
 const isDirty = p => p.dirtyT !== null;
-const isSmelly = p => isDirty(p) && p.dirtyT >= SMELL_AFTER;
+const isSmelly = p => isDirty(p) && p.dirtyT >= smellAfter(p);
 const cleanScore = p => isSmelly(p) ? 0 : isDirty(p) ? 40 : 100;
 const happy = p => p.hunger * 0.4 + cleanScore(p) * 0.4 + p.garden * 0.2;
 const penAppeal = p => A[p.a].appeal * (1 + 0.5 * (p.count - 1)) * (1 + 0.25 * p.deco) * (1 + 0.1 * (p.level - 1));
@@ -338,6 +357,73 @@ function here() { const i = currentSlot(); return mode === 'zoo' && i >= 0 ? { i
 function pay(cost) { if (S.money < cost) { toast(`${won(cost - S.money)}이 더 필요해요`); return false; } S.money -= cost; return true; }
 
 // ---------- actions ----------
+// staff NPCs walk to pens that need their job and do it (a bit slower than the keeper)
+let crew = [];
+const staffNeeds = (p, role) => role === 'food' ? p.hunger < 60 : role === 'clean' ? isDirty(p) : p.garden < 70;
+function syncCrew() {
+  for (const role in STAFF) {
+    let have = crew.filter(c => c.role === role).length;
+    while (have < S.staff[role]) { const r = stationRect(role); crew.push({ role, x: r.x + r.w / 2 + (have ? 20 : -20), y: STATION_Y + 40, target: -1, t: 0, walk: 0, dir: 1 }); have++; }
+    crew = crew.filter(c => c.role !== role || crew.filter(d => d.role === role).indexOf(c) < S.staff[role]);
+  }
+}
+let unpaid = false, unpaidWarned = 0;
+function updateCrew(dt) {
+  const wage = Object.keys(STAFF).reduce((sum, r) => sum + S.staff[r] * STAFF[r].wage, 0);
+  if (wage) {
+    const due = wage * dt / 60;
+    unpaid = S.money < due;
+    if (!unpaid) S.money -= due;
+    else if (performance.now() - unpaidWarned > 8000) { unpaidWarned = performance.now(); toast('월급 줄 돈이 없어서 직원들이 쉬고 있어요'); }
+  } else unpaid = false;
+  for (const c of crew) {
+    let p = c.target >= 0 ? S.pens[c.target] : null;
+    if (c.target >= 0 && !(isPen(p) && staffNeeds(p, c.role))) { c.target = -1; c.t = 0; p = null; }
+    if (c.target < 0 && !unpaid) {
+      let best = -1, bd = 1e9;
+      S.pens.forEach((q, i) => {
+        if (!isPen(q) || !staffNeeds(q, c.role) || crew.some(o => o !== c && o.role === c.role && o.target === i)) return;
+        const r = slotRect(i), d = Math.hypot(r.x + r.w / 2 - c.x, r.y + r.h / 2 - c.y);
+        if (d < bd) { bd = d; best = i; }
+      });
+      c.target = best; c.t = 0; p = best >= 0 ? S.pens[best] : null;
+    }
+    let tx, ty;
+    if (c.target >= 0 && !unpaid) { const r = slotRect(c.target); tx = r.x + r.w / 2 + (c.role === 'garden' ? 30 : c.role === 'clean' ? -30 : 0); ty = r.y + 100; }
+    else { const r = stationRect(c.role); tx = r.x + r.w / 2 + (crew.filter(o => o.role === c.role).indexOf(c) ? 22 : -22); ty = STATION_Y + 42; }
+    const dx = tx - c.x, dy = ty - c.y, d = Math.hypot(dx, dy);
+    if (d > 3) { const m = Math.min(d, STAFF_SPEED * dt); c.x += dx / d * m; c.y += dy / d * m; c.walk += dt * 10; if (Math.abs(dx) > 1) c.dir = Math.sign(dx); c.t = 0; }
+    else {
+      c.walk = 0;
+      if (c.target >= 0 && !unpaid) {
+        if (c.role === 'food' && S.money < FEED_COST * p.count) continue;
+        c.t += dt;
+        if (c.t >= TOOLS[c.role].time * 1.4) { finishJob(c.target, c.role); c.target = -1; c.t = 0; }
+      }
+    }
+  }
+}
+function drawStaff(c) {
+  const step = Math.sin(c.walk) * 2;
+  if (ready('keeper')) {
+    ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(c.x, c.y + 15, 11, 3.5, 0, 0, 7); ctx.fill();
+    const f = ATLAS.keeper.tools[{ food: 0, clean: 1, garden: 2 }[c.role]];
+    ctx.save(); ctx.globalAlpha = unpaid ? 0.55 : 1;
+    sprite('keeper', f, c.x, c.y + 16 - (c.walk ? Math.abs(step) : 0), 44 * f[3] / ATLAS.keeper.down[0][3], c.dir < 0);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = '#3f6fa8'; rrect(c.x - 8, c.y - 6, 16, 16, 5); ctx.fill();
+    ctx.fillStyle = '#f3c9a0'; ctx.beginPath(); ctx.arc(c.x, c.y - 12, 7, 0, 7); ctx.fill();
+    emoji(TOOLS[c.role].e, c.x + 12, c.y, 14);
+  }
+  rrect(c.x - 20, c.y + 19, 40, 13, 6); ctx.fillStyle = 'rgba(63,111,168,.9)'; ctx.fill();
+  label(unpaid ? '쉬는 중' : STAFF[c.role].name, c.x, c.y + 26, 9, '#ffffff');
+  if (c.t > 0) {
+    const f = clamp(c.t / (TOOLS[c.role].time * 1.4), 0, 1);
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(35,48,31,.35)'; ctx.beginPath(); ctx.arc(c.x + 18, c.y - 18, 8, 0, 7); ctx.stroke();
+    ctx.strokeStyle = '#6fa8dc'; ctx.beginPath(); ctx.arc(c.x + 18, c.y - 18, 8, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); ctx.stroke();
+  }
+}
 // keeper jobs: stand in a station to pick up its tool, then stand in a pen that needs it
 const needs = (p, t) => t === 'food' ? p.hunger < 90 : t === 'clean' ? isDirty(p) : p.garden < 85;
 function finishJob(i, t) {
@@ -348,7 +434,7 @@ function finishJob(i, t) {
     p.hunger = 100; p.fedT = 2.5; float(x, y, `냠냠! -${cost}원`, '#ffe9a8');
   } else if (t === 'clean') {
     const fast = p.dirtyT < 5;
-    p.dirtyT = null; p.poops = []; p.cleanCD = CLEAN_EVERY[p.level];
+    p.dirtyT = null; p.poops = []; p.cleanCD = cleanEvery(p);
     if (fast) S.money += 10;
     float(x, y, fast ? '빠른 청소! +10원' : '반짝반짝!', '#ffffff');
   } else { p.garden = 100; float(x, y, '🌿 싱그러워졌어요!', '#e8f5d8'); }
@@ -390,18 +476,29 @@ function padsFor(i) {
     return [{ key: `buy:${i}:${a.id}`, x: r.x + 22, y: r.y + r.h - 44, w: r.w - 44, h: 34, icon: a.emoji, text: `${a.name} 사기`, cost: a.price, ok: true,
       act: () => { S.pens[i] = { pending: a.id, t: arriveTime(a), total: arriveTime(a) }; toast(`${a.emoji} ${josa(a.name, '이', '가')} 오고 있어요! ${arriveTime(a)}초 뒤 도착`); renderShop(); } }];
   }
-  const a = A[p.a], full = p.count >= CAPACITY[p.level], maxed = p.level >= MAX_LEVEL;
+  const a = A[p.a], full = p.count >= CAPACITY[p.level], maxed = p.level >= MAX_LEVEL, fdone = p.fac >= FAC.length, fn = FAC[p.fac];
   return [
-    { key: `up:${i}`, x: r.x + 6, y: r.y + r.h - 32, w: 80, h: 26, icon: '⬆', text: maxed ? '최고 Lv' : `Lv.${p.level + 1}`, cost: maxed ? 0 : upgradeCost(a, p.level), ok: !maxed,
+    { key: `up:${i}`, x: r.x + 5, y: r.y + r.h - 32, w: 54, h: 26, icon: '⬆', text: maxed ? '최고' : `Lv.${p.level + 1}`, cost: maxed ? 0 : upgradeCost(a, p.level), ok: !maxed,
       why: '이미 최고 단계 우리예요',
-      act: () => { p.level++; if (!isDirty(p)) p.cleanCD = Math.max(p.cleanCD, CLEAN_EVERY[p.level] / 2); float(r.x + r.w / 2, r.y + 60, `우리 Lv.${p.level}!`, '#fff3a8'); } },
-    { key: `add:${i}`, x: r.x + 90, y: r.y + r.h - 32, w: 80, h: 26, icon: '➕', text: full ? `꽉 참` : '한 마리', cost: full ? 0 : addCost(a), ok: !full,
+      act: () => { p.level++; if (!isDirty(p)) p.cleanCD = Math.max(p.cleanCD, cleanEvery(p) / 2); float(r.x + r.w / 2, r.y + 60, `우리 Lv.${p.level}!`, '#fff3a8'); } },
+    { key: `add:${i}`, x: r.x + 61, y: r.y + r.h - 32, w: 54, h: 26, icon: '➕', text: full ? `꽉 참` : '한 마리', cost: full ? 0 : addCost(a), ok: !full,
       why: maxed ? '우리가 꽉 찼어요' : '우리가 꽉 찼어요. 업그레이드하면 더 넣을 수 있어요',
       act: () => { p.count++; p.critters.push(critter()); float(r.x + r.w / 2, r.y + 60, `${a.emoji} 한 마리 더!`, '#ffffff'); } },
+    { key: `fac:${i}`, x: r.x + 117, y: r.y + r.h - 32, w: 54, h: 26, icon: fdone ? '🔧' : fn.e, text: fdone ? '설비 끝' : fn.n.replace(' 시설', ''),
+      cost: fdone ? 0 : facCost(a, p.fac), ok: !fdone, why: '설비를 모두 갖췄어요', desc: fdone ? '' : fn.what,
+      act: () => { const f = FAC[p.fac++]; if (p.fac === 2 && !isDirty(p)) p.cleanCD *= 1.5; float(r.x + r.w / 2, r.y + 60, `${f.e} ${f.n} 설치!`, '#ffffff'); } },
   ];
 }
+function hirePads() {
+  return Object.keys(STAFF).map(role => {
+    const n = S.staff[role], r = stationRect(role), full = n >= MAX_STAFF, st = STAFF[role];
+    return { key: `hire:${role}`, x: r.x, y: STATION_Y - 56, w: r.w, h: 26, icon: '👷', text: full ? `${n}명 (최대)` : `${n + 1}명째 고용`,
+      cost: full ? 0 : st.cost[n], ok: !full, why: `${st.name}은 ${MAX_STAFF}명까지 뽑을 수 있어요`, desc: full ? '' : `${st.name}, 월급 ${st.wage}원/분`,
+      act: () => { S.staff[role]++; syncCrew(); float(r.x + r.w / 2, STATION_Y - 70, `👷 ${st.name} 고용!`, '#ffffff'); } };
+  });
+}
 const onPad = d => keeper.x > d.x && keeper.x < d.x + d.w && keeper.y > d.y - 18 && keeper.y < d.y + d.h + 6; // matches the keeper's drawn body/feet
-function padAt() { const i = currentSlot(); return i < 0 ? null : padsFor(i).find(onPad) || null; }
+function padAt() { const i = currentSlot(); return hirePads().find(onPad) || (i < 0 ? null : padsFor(i).find(onPad) || null); }
 function special() {
   const h = here(); if (!h || !isPen(h.p)) return;
   const { p, r, i } = h, a = A[p.a];
@@ -502,8 +599,8 @@ function updateZoo(dt) {
       }
       return;
     }
-    p.hunger = Math.max(0, p.hunger - dt * (p.circusT > 0 ? 3 : 1.6));
-    p.garden = Math.max(0, p.garden - dt * GARDEN_DECAY);
+    p.hunger = Math.max(0, p.hunger - dt * (p.circusT > 0 ? 3 : 1.6) * (p.fac >= 1 ? 0.5 : 1));
+    p.garden = Math.max(0, p.garden - dt * GARDEN_DECAY * (p.fac >= 3 ? 0.25 : 1));
     p.circusCD = Math.max(0, p.circusCD - dt);
     p.fedT = Math.max(0, (p.fedT || 0) - dt);
     p.circusT = Math.max(0, p.circusT - dt);
@@ -526,6 +623,7 @@ function updateZoo(dt) {
   }
   updateVisitors(dt);
   updateWork(dt);
+  updateCrew(dt);
 }
 
 // ---------- drawing ----------
@@ -567,15 +665,18 @@ function drawGround() {
   }
 }
 function drawPads(i) {
-  for (const d of padsFor(i)) {
+  for (const d of i < 0 ? hirePads() : padsFor(i)) {
     const on = onPad(d), afford = S.money >= d.cost, lit = d.ok && afford;
     rrect(d.x, d.y, d.w, d.h, 8);
     ctx.fillStyle = !d.ok ? 'rgba(255,255,255,.45)' : lit ? (on ? '#fff3a8' : '#fff8d6') : 'rgba(225,225,215,.85)'; ctx.fill();
     ctx.strokeStyle = lit ? '#c99a3c' : 'rgba(90,90,80,.4)'; ctx.lineWidth = on ? 3 : 2; ctx.setLineDash(d.ok ? [] : [4, 3]); ctx.stroke(); ctx.setLineDash([]);
     const big = d.h > 30, cy = d.y + d.h / 2;
-    emoji(d.icon, d.x + (big ? 18 : 11), cy, big ? 22 : 13);
-    label(d.text, d.x + (big ? 36 : 21), d.ok ? cy - (big ? 7 : 5) : cy, big ? 14 : 11, d.ok ? '#23301f' : '#5d6b55', 'left');
-    if (d.ok) label(won(d.cost), d.x + (big ? 36 : 21), cy + (big ? 8 : 6), big ? 12 : 10, afford ? '#a8740a' : '#c2462e', 'left');
+    emoji(d.icon, d.x + (big ? 18 : d.w < 60 ? 9 : 11), cy, big ? 22 : d.w < 60 ? 11 : 13);
+    const small = d.w < 60, tx = d.x + (big ? 36 : small ? 18 : 21);
+    if (small) { ctx.save(); ctx.beginPath(); ctx.rect(d.x, d.y, d.w - 2, d.h); ctx.clip(); }
+    label(d.text, tx, d.ok ? cy - (big ? 7 : 5) : cy, big ? 14 : small ? 10 : 11, d.ok ? '#23301f' : '#5d6b55', 'left');
+    if (d.ok) label(won(d.cost), tx, cy + (big ? 8 : 6), big ? 12 : small ? 9 : 10, afford ? '#a8740a' : '#c2462e', 'left');
+    if (small) ctx.restore();
   }
 }
 function drawEmptySlot(r, p) {
@@ -618,6 +719,7 @@ function drawPen(i) {
   }
   if (p.garden < 35) emoji('🥀', 150, 72, 16);
   for (let k = 0; k < p.deco; k++) emoji(DECOS[k].e, 18 + k * 24, 72, 18);
+  for (let k = 0; k < p.fac; k++) emoji(FAC[k].e, r.w - 14, 72 + k * 18, 14);
   for (const pp of p.poops) drawPoop(pp.x, pp.y);
   const art = ANIM_ART[a.id] && ready(ANIM_ART[a.id][0]) ? ANIM_ART[a.id] : null;
   const frames = art && ATLAS[art[0]][art[1]], SIZE = 46;
@@ -664,8 +766,8 @@ function drawPen(i) {
   if (show) label('🎪 공연 중', 12, 49, 11, '#c2462e', 'left');
   label('밥', 88, 16, 11, '#5d6b55', 'left'); bar(110, 12, 54, p.hunger, '#e8a23a');
   label('정원', 82, 30, 11, '#5d6b55', 'left'); bar(110, 26, 54, p.garden, '#62a845');
-  if (isDirty(p)) label(isSmelly(p) ? '냄새 나요!' : `청소! ${Math.ceil(SMELL_AFTER - p.dirtyT)}초`, 137, 45, 12, '#c2462e');
-  else { label('청소', 82, 45, 11, '#5d6b55', 'left'); bar(110, 41, 54, p.cleanCD / CLEAN_EVERY[p.level] * 100, '#4aa0c9', -1); }
+  if (isDirty(p)) label(isSmelly(p) ? '냄새 나요!' : `청소! ${Math.ceil(smellAfter(p) - p.dirtyT)}초`, 137, 45, 12, '#c2462e');
+  else { label('청소', 82, 45, 11, '#5d6b55', 'left'); bar(110, 41, 54, p.cleanCD / cleanEvery(p) * 100, '#4aa0c9', -1); }
   ctx.restore();
   if (isDirty(p) && !isSmelly(p) && Math.floor(now / 350) % 2) { ctx.strokeStyle = '#e0533a'; ctx.lineWidth = 3; rrect(r.x - 2, r.y - 2, r.w + 4, r.h + 4, 13); ctx.stroke(); }
 }
@@ -717,8 +819,9 @@ function drawZoo(dt) {
   drawGround();
   const cur = currentSlot();
   for (let i = 0; i < 8; i++) { drawPen(i); drawPads(i); }
+  drawPads(-1);
   if (cur >= 0) { const r = slotRect(cur); ctx.strokeStyle = '#fff3a8'; ctx.lineWidth = 3; ctx.setLineDash([6, 5]); rrect(r.x - 5, r.y - 5, r.w + 10, r.h + 10, 15); ctx.stroke(); ctx.setLineDash([]); }
-  const ents = [...visitors.map(v => ({ y: v.y, d: () => drawVisitor(v) })), { y: keeper.y, d: drawKeeper }];
+  const ents = [...visitors.map(v => ({ y: v.y, d: () => drawVisitor(v) })), ...crew.map(c => ({ y: c.y, d: () => drawStaff(c) })), { y: keeper.y, d: drawKeeper }];
   ents.sort((a, b) => a.y - b.y).forEach(e => e.d());
   drawFloats(dt);
 }
@@ -859,6 +962,10 @@ function updateHud() {
   $('sVisitors').textContent = visitors.length;
   $('sTotal').textContent = S.total.toLocaleString();
   $('sPop').textContent = popularity().toFixed(1);
+  const staffN = Object.values(S.staff).reduce((a, b) => a + b, 0);
+  $('sStaff').hidden = !staffN; $('sStaffN').textContent = staffN;
+  $('sWage').textContent = Object.keys(STAFF).reduce((sum, r) => sum + S.staff[r] * STAFF[r].wage, 0);
+  $('sStaff').classList.toggle('warn', unpaid);
   $('sSmell').hidden = smellyCount() === 0;
   const h = here(), p = h && h.p, pen = isPen(p) ? p : null, a = pen && A[pen.a];
   if (pen && a.sp === 'deco') setBtn('btnSpecial', true, pen.deco >= DECOS.length ? '🎨 꾸미기 완료' : `🎨 ${DECOS[pen.deco].n} 꾸미기 ${decoCost(a, pen.deco)}원 <small>(G)</small>`, pen.deco < DECOS.length);
@@ -871,7 +978,7 @@ function updateHud() {
   let t = '도구함에 서 있으면 도구를 챙기고, 우리 안에서 기다리면 일을 해요.';
   if (st) t = k.carry === st ? `${TOOLS[st].e} ${TOOLS[st].tool}를 이미 들고 있어요.` : `${TOOLS[st].e} ${TOOLS[st].name}: 잠깐 기다리면 ${TOOLS[st].tool}를 챙겨요…`;
   const pad = mode === 'zoo' ? padAt() : null;
-  if (pad) t = !pad.ok ? pad.why : k.padLock === pad.key ? '완료! 다시 하려면 발판에서 내려왔다가 올라가세요' : S.money < pad.cost ? `${won(pad.cost - S.money)}이 더 필요해요` : `${pad.icon} ${pad.text} (${won(pad.cost)}) — 서 있으면 진행돼요…`;
+  if (pad) t = !pad.ok ? pad.why : k.padLock === pad.key ? '완료! 다시 하려면 발판에서 내려왔다가 올라가세요' : S.money < pad.cost ? `${pad.icon} ${pad.text}${pad.desc ? ' (' + pad.desc + ')' : ''} — ${won(pad.cost - S.money)}이 더 필요해요` : `${pad.icon} ${pad.text} ${won(pad.cost)}${pad.desc ? ' (' + pad.desc + ')' : ''} — 서 있으면 진행돼요…`;
   else if (h && !p) { const o = offerFor(h.i); t = o ? `빈 우리예요. 아래 발판에 서 있으면 ${o.emoji} ${josa(o.name, '을', '를')} ${won(o.price)}에 사요.` : '모든 동물을 다 모았어요!'; }
   else if (h && p.pending) t = `${A[p.pending].emoji} ${A[p.pending].name} 배달 중… ${Math.ceil(p.t)}초 남았어요.`;
   else if (pen) t = `${a.emoji} ${a.name} 우리 Lv.${pen.level} · ${pen.count}/${CAPACITY[pen.level]}마리 · 배부름 ${Math.round(pen.hunger)} · 정원 ${Math.round(pen.garden)}${pen.deco ? ' · 장식 ' + DECOS.slice(0, pen.deco).map(d => d.e).join('') : ''}`;
@@ -887,7 +994,7 @@ let resetArmed = false;
 $('btnReset').onclick = () => {
   if (!resetArmed) { resetArmed = true; $('btnReset').textContent = '정말 처음부터? 한 번 더 누르세요'; setTimeout(() => { resetArmed = false; $('btnReset').textContent = '처음부터 다시 하기'; }, 3000); return; }
   resetArmed = false; $('btnReset').textContent = '처음부터 다시 하기';
-  S = freshState(); visitors = []; floats = []; keeper.carry = null; keeper.work = null; keeper.x = 150; keeper.y = 250; renderShop(); save(); closeMenu();
+  S = freshState(); visitors = []; floats = []; crew = []; syncCrew(); keeper.carry = null; keeper.work = null; keeper.x = 150; keeper.y = 250; renderShop(); save(); closeMenu();
 };
 
 cv.addEventListener('pointerdown', e => {
@@ -935,6 +1042,7 @@ function frame(now) {
 
 function start(data) {
   S = deserialize(data && data.save) || load() || freshState();
+  syncCrew();
   renderShop(); layout(); updateHud();
   mode = 'title';
   showOverlay('🌻 해바라기 동물원', '사육사가 되어 동물들에게 밥을 주고, 우리를 치우고 가꿔서 관람객을 모아 보세요. 화면이 가로로 켜져요. 휴대폰은 옆으로 돌려서 하세요.', '게임 시작', () => { closeOverlay(); goLandscape(); layout(); });
