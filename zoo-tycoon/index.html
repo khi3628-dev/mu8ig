@@ -1,12 +1,13 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 </head><body>
 <title>해바라기 동물원</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap">
 <style>
-/* Layout: one-screen game — stat bar, zoo canvas, contextual action row, animal guide below. Single daylight theme by choice. */
+/* Layout: a full-screen landscape game box — HUD bar on top, D-pad left, zoo canvas centre, action buttons right, status line bottom.
+   On a portrait screen the whole box is turned 90° so it always plays sideways. Single daylight theme by choice. */
 :root {
+  --frame: #2b3a26;
   --paper: #eef3e2;
   --ink: #23301f;
   --muted: #5d6b55;
@@ -23,102 +24,122 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body {
-  background: var(--paper); color: var(--ink); font-family: var(--font-body);
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 12px 32px;
+html, body { height: 100%; overflow: hidden; }
+body { margin: 0; background: var(--frame); color: var(--ink); font-family: var(--font-body); overscroll-behavior: none; }
+#game {
+  position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; transform-origin: 0 0;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr) auto; gap: 6px 10px;
+  padding: max(6px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));
+  background: var(--frame); user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
-.wrap { max-width: 960px; margin: 0 auto; display: grid; gap: 12px; }
-header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; justify-content: space-between; }
-h1 { font-family: var(--font-display); font-weight: 400; font-size: 1.9rem; margin: 0; color: var(--leaf-dark); letter-spacing: .01em; }
-.stats { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-variant-numeric: tabular-nums; font-size: .95rem; white-space: nowrap; }
-.chip b { font-family: var(--font-display); font-weight: 400; font-size: 1.1rem; }
+/* turned 90° clockwise: game top sits on the screen's right edge, game left on the screen's top edge */
+#game.rot { padding: max(6px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px)) max(10px, env(safe-area-inset-top, 0px)); }
+.hud { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; min-width: 0; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: 1.25rem; margin: 0 6px 0 0; color: #f6e7a8; white-space: nowrap; }
+#game.narrow h1 { display: none; }
+.stats { display: flex; gap: 5px; min-width: 0; overflow: hidden; flex: 1; }
+.chip { background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-variant-numeric: tabular-nums; font-size: .85rem; white-space: nowrap; }
+.chip b { font-family: var(--font-display); font-weight: 400; font-size: 1rem; }
 .chip.money b { color: #a8740a; }
 .chip.warn { background: var(--bad); border-color: var(--bad); color: #fff; }
-.stage { position: relative; width: 100%; }
-canvas { cursor: default !important; }
-canvas { display: block; width: 100%; height: auto; max-width: 100%; border-radius: 14px; border: 3px solid var(--bark); background: #8cc56a; touch-action: none; cursor: pointer; }
-.overlay { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(35,48,31,.45); border-radius: 14px; padding: 12px; overflow: auto; }
-.panel { background: var(--card); border-radius: 14px; padding: 18px 20px; max-width: 420px; width: 100%; text-align: center; display: grid; gap: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.25); }
-.panel h2 { font-family: var(--font-display); font-weight: 400; margin: 0; font-size: 1.6rem; color: var(--leaf-dark); text-wrap: balance; }
-.panel p { margin: 0; line-height: 1.55; color: var(--muted); }
-.controls { display: flex; gap: 14px; align-items: center; }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 1; min-width: 0; }
-.dpad { display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(2, 48px); gap: 4px; flex: none; grid-template-areas: ". up ." "left down right"; }
-.dpad button { padding: 0; font-size: 1.2rem; touch-action: none; user-select: none; -webkit-user-select: none; background: var(--bark); box-shadow: 0 3px 0 #553d26; }
+#game.narrow .chip.total { display: none; }
+.stage { grid-column: 2; grid-row: 2; position: relative; min-width: 0; min-height: 0; }
+canvas { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: block; border-radius: 12px; border: 3px solid var(--bark); background: #8cc56a; touch-action: none; }
+.side { grid-row: 2; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; min-height: 0; }
+.side.left { grid-column: 1; }
+.side.right { grid-column: 3; width: clamp(110px, 16vw, 170px); }
+#game.rot .side.right { width: clamp(110px, 16vh, 170px); }
+.side.right button { width: 100%; font-size: .9rem; padding: 8px 8px; line-height: 1.25; word-break: keep-all; text-wrap: balance; }
+.status { grid-column: 1 / -1; color: #dfe8cf; font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.status b { color: #f6e7a8; font-family: var(--font-display); font-weight: 400; }
+.dpad { display: grid; grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(2, 44px); gap: 4px; grid-template-areas: ". up ." "left down right"; }
+.dpad button { padding: 0; font-size: 1.15rem; touch-action: none; background: var(--bark); box-shadow: 0 3px 0 #553d26; }
 .dpad button.on { transform: translateY(2px); box-shadow: 0 1px 0 #553d26; background: #8f6b47; }
 .d-up { grid-area: up; } .d-left { grid-area: left; } .d-right { grid-area: right; } .d-down { grid-area: down; }
-button { font-family: var(--font-display); font-size: 1.05rem; border: 0; border-radius: 12px; padding: 10px 14px; cursor: pointer; background: var(--leaf); color: #fff; box-shadow: 0 3px 0 var(--leaf-dark); }
+@media (hover: hover) and (pointer: fine) { .side.left { display: none; } }
+button { font-family: var(--font-display); font-size: 1rem; border: 0; border-radius: 12px; padding: 9px 14px; cursor: pointer; background: var(--leaf); color: #fff; box-shadow: 0 3px 0 var(--leaf-dark); }
 button small { font-family: var(--font-body); opacity: .8; }
 button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--leaf-dark); }
 button:disabled { background: #b9c2ad; box-shadow: 0 3px 0 #9aa48c; cursor: not-allowed; }
 button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
 button.alt { background: var(--sun); color: var(--ink); box-shadow: 0 3px 0 #b88515; }
-button.urgent { background: var(--bad); box-shadow: 0 3px 0 #8a2f1e; }
 button.ghost { background: var(--card); color: var(--ink); border: 1px solid var(--line); box-shadow: none; }
-.target b { color: var(--ink); font-family: var(--font-display); font-weight: 400; }
-.target { color: var(--muted); font-size: .95rem; min-width: 0; flex: 1 1 100%; }
+.hud button { padding: 5px 12px; font-size: .9rem; white-space: nowrap; }
+.layer { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(20,28,18,.6); padding: 14px; overflow: auto; z-index: 5; }
+.panel { background: var(--card); border-radius: 14px; padding: 18px 20px; max-width: 440px; width: 100%; text-align: center; display: grid; gap: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.3); }
+.panel h2 { font-family: var(--font-display); font-weight: 400; margin: 0; font-size: 1.6rem; color: var(--leaf-dark); text-wrap: balance; }
+.panel p { margin: 0; line-height: 1.55; color: var(--muted); }
+.menu { max-width: 760px; text-align: left; max-height: 100%; overflow-y: auto; align-self: stretch; }
+.menu .top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .hint { margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.6; }
-kbd { font-family: var(--font-body); background: var(--card); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; font-size: .85em; }
-h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.3rem; margin: 6px 0 0; color: var(--leaf-dark); }
-.shop { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 4px; align-content: start; }
-.card .em { font-size: 2rem; line-height: 1.1; }
-.card .nm { font-family: var(--font-display); font-size: 1.15rem; }
-.card .meta { font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-.card .tag { justify-self: start; font-size: .8rem; border-radius: 999px; padding: 1px 8px; background: #f3ead2; color: var(--bark); }
+kbd { font-family: var(--font-body); background: var(--paper); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; font-size: .85em; }
+h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.2rem; margin: 4px 0 0; color: var(--leaf-dark); }
+.shop { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; display: grid; gap: 3px; align-content: start; }
+.card .em { font-size: 1.8rem; line-height: 1.1; }
+.card .nm { font-family: var(--font-display); font-size: 1.1rem; }
+.card .meta { font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.card .tag { justify-self: start; font-size: .75rem; border-radius: 999px; padding: 1px 8px; background: #f3ead2; color: var(--bark); }
 .card .tag.circus { background: #fbe1da; color: var(--bad); }
-.card .st { font-size: .85rem; font-family: var(--font-display); color: var(--leaf-dark); }
+.card .st { font-size: .8rem; font-family: var(--font-display); color: var(--leaf-dark); }
 .card.owned { background: #f5f9ec; }
-.toast { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 6px 14px; border-radius: 999px; font-size: .95rem; pointer-events: none; transition: opacity .3s; white-space: nowrap; max-width: 90%; overflow: hidden; text-overflow: ellipsis; }
+.toast { position: absolute; left: 50%; top: 48px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 6px 14px; border-radius: 999px; font-size: .9rem; pointer-events: none; transition: opacity .3s; white-space: nowrap; max-width: 80%; overflow: hidden; text-overflow: ellipsis; z-index: 6; }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
-@media (max-width: 480px) { .actions button { font-size: .9rem; padding: 8px 10px; } .dpad { grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(2, 46px); } }
 </style>
 
-<div class="wrap">
-  <header>
-    <h1>해바라기 동물원</h1>
+<div id="game">
+  <div class="hud">
+    <h1>🌻 해바라기 동물원</h1>
     <div class="stats">
       <span class="chip money">💰 <b id="sMoney">0</b>원</span>
-      <span class="chip">🧍 관람객 <b id="sVisitors">0</b></span>
-      <span class="chip">누적 <b id="sTotal">0</b>명</span>
-      <span class="chip">⭐ 인기도 <b id="sPop">0</b></span>
-      <span class="chip warn" id="sSmell" hidden>🤢 냄새 때문에 관람객이 줄었어요</span>
+      <span class="chip">🧍 <b id="sVisitors">0</b>명</span>
+      <span class="chip total">누적 <b id="sTotal">0</b>명</span>
+      <span class="chip">⭐ <b id="sPop">0</b></span>
+      <span class="chip warn" id="sSmell" hidden title="냄새 나는 우리가 있어서 관람객이 줄었어요">🤢 냄새!</span>
     </div>
-  </header>
+    <button id="btnMenu" type="button" class="ghost">☰ 메뉴</button>
+  </div>
 
-  <div class="stage">
+  <div class="side left">
+    <div class="dpad" aria-label="사육사 이동 방향키">
+      <button type="button" class="d-up" data-k="ArrowUp" aria-label="위로">▲</button>
+      <button type="button" class="d-left" data-k="ArrowLeft" aria-label="왼쪽으로">◀</button>
+      <button type="button" class="d-right" data-k="ArrowRight" aria-label="오른쪽으로">▶</button>
+      <button type="button" class="d-down" data-k="ArrowDown" aria-label="아래로">▼</button>
+    </div>
+  </div>
+
+  <div class="stage" id="stage">
     <canvas id="cv" width="800" height="500" aria-label="동물원 화면. 방향키로 사육사를 움직입니다."></canvas>
-    <div class="overlay" id="overlay" hidden>
-      <div class="panel">
-        <h2 id="ovTitle"></h2>
-        <p id="ovText"></p>
-        <button id="ovBtn" type="button"></button>
-      </div>
-    </div>
-    <div class="toast" id="toast" style="opacity:0"></div>
   </div>
 
-  <div class="controls">
-  <div class="dpad" aria-label="사육사 이동 방향키">
-    <button type="button" class="d-up" data-k="ArrowUp" aria-label="위로">▲</button>
-    <button type="button" class="d-left" data-k="ArrowLeft" aria-label="왼쪽으로">◀</button>
-    <button type="button" class="d-right" data-k="ArrowRight" aria-label="오른쪽으로">▶</button>
-    <button type="button" class="d-down" data-k="ArrowDown" aria-label="아래로">▼</button>
-  </div>
-  <div class="actions">
+  <div class="side right">
     <button id="btnSpecial" type="button" class="alt" hidden>🎪 <small>(G)</small></button>
     <button id="btnPanda" type="button" class="alt">🐼 아기 판다 감시하기</button>
-    <span class="target" id="targetText"></span>
   </div>
-  </div>
-  <p class="hint">키보드 방향키나 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, 또는 화면의 ▲◀▶▼ 버튼으로 사육사를 움직여요. 길 가운데 <b>먹이 창고 🥕</b>, <b>청소도구함 🧹</b>, <b>정원 도구함 🌱</b>에 서 있으면 도구를 챙기고, 그 도구를 들고 우리 안에서 기다리면 밥주기·청소·가꾸기를 해요. 청소 시간이 되면 바로 치워 주세요. 15초 넘게 두면 냄새가 나서 관람객이 오지 않아요. 우리 아래쪽 <b>⬆ 업그레이드</b>·<b>➕ 한 마리</b> 발판, 빈 우리의 <b>구입</b> 발판에 잠깐 서 있으면 돈을 내고 바로 진행돼요. 다시 사려면 발판에서 내려왔다가 올라가세요.</p>
 
-  <h3>동물 도감</h3>
-  <div class="shop" id="shop"></div>
-  <div><button id="btnReset" type="button" class="ghost">처음부터 다시 하기</button></div>
+  <div class="status" id="targetText"></div>
+
+  <div class="layer" id="overlay" hidden>
+    <div class="panel">
+      <h2 id="ovTitle"></h2>
+      <p id="ovText"></p>
+      <button id="ovBtn" type="button"></button>
+    </div>
+  </div>
+
+  <div class="layer" id="menu" hidden>
+    <div class="panel menu">
+      <div class="top"><h2>메뉴</h2><button id="btnMenuClose" type="button">게임으로 돌아가기</button></div>
+      <h3>하는 법</h3>
+      <p class="hint">키보드 방향키나 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, 휴대폰은 왼쪽 ▲◀▶▼ 버튼으로 사육사를 움직여요. 길 가운데 <b>먹이 창고 🥕</b>, <b>청소도구함 🧹</b>, <b>정원 도구함 🌱</b>에 서 있으면 도구를 챙기고, 그 도구를 들고 우리 안에서 기다리면 밥주기·청소·가꾸기를 해요. 청소 시간이 되면 바로 치워 주세요. 15초 넘게 두면 냄새가 나서 관람객이 오지 않아요. 우리 아래쪽 <b>⬆ 업그레이드</b>·<b>➕ 한 마리</b> 발판, 빈 우리의 <b>구입</b> 발판에 잠깐 서 있으면 돈을 내고 바로 진행돼요. 다시 사려면 발판에서 내려왔다가 올라가세요. 꾸미기·서커스는 오른쪽 버튼이나 <kbd>G</kbd>로 해요.</p>
+      <h3>동물 도감</h3>
+      <div class="shop" id="shop"></div>
+      <div><button id="btnReset" type="button" class="ghost">처음부터 다시 하기</button></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" style="opacity:0"></div>
 </div>
 
 <script>
@@ -156,9 +177,33 @@ const slotRect = i => ({ i, x: 16 + (i % 4) * 196, y: i < 4 ? 16 : 324, w: 176, 
 
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
-const scale = Math.min(window.devicePixelRatio || 1, 2);
-cv.width = W * scale; cv.height = H * scale;
-ctx.setTransform(scale, 0, 0, scale, 0, 0);
+const game = document.getElementById('game');
+let rotated = false;
+// fit the game box to the screen in landscape; on a portrait screen turn the box 90° clockwise
+function layout() {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  rotated = vh > vw * 1.05;
+  const gw = rotated ? vh : vw, gh = rotated ? vw : vh;
+  game.classList.toggle('rot', rotated);
+  game.classList.toggle('narrow', gw < 780);
+  game.style.width = gw + 'px'; game.style.height = gh + 'px';
+  game.style.transform = rotated ? `translateX(${vw}px) rotate(90deg)` : 'none';
+  const box = document.getElementById('stage');
+  const s = Math.max(0.1, Math.min((box.clientWidth - 6) / W, (box.clientHeight - 6) / H));
+  cv.style.width = W * s + 'px'; cv.style.height = H * s + 'px';
+  const res = Math.min(3, (window.devicePixelRatio || 1) * Math.max(1, s));
+  if (cv.width !== Math.round(W * res)) { cv.width = Math.round(W * res); cv.height = Math.round(H * res); }
+  ctx.setTransform(res, 0, 0, res, 0, 0);
+}
+window.addEventListener('resize', layout);
+window.addEventListener('orientationchange', () => setTimeout(layout, 150));
+document.addEventListener('fullscreenchange', layout);
+function goLandscape() {
+  try {
+    const req = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+    if (req && req.then) req.then(() => screen.orientation && screen.orientation.lock ? screen.orientation.lock('landscape') : null).catch(() => {}).then(layout);
+  } catch (e) {}
+}
 
 const josa = (w, a, b) => { const c = w.charCodeAt(w.length - 1) - 0xAC00; return w + (c >= 0 && c % 28 ? a : b); };
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -722,7 +767,7 @@ function updateHud() {
   else if (pen) setBtn('btnSpecial', true, pen.circusT > 0 ? '🎪 공연 중' : pen.circusCD > 0 ? `🎪 서커스 ${Math.ceil(pen.circusCD)}초 후` : '🎪 서커스 공연 <small>(G)</small>', pen.circusT <= 0 && pen.circusCD <= 0);
   else setBtn('btnSpecial', false);
   const left = Math.ceil((S.cooldownEnd - Date.now()) / 1000);
-  $('btnPanda').disabled = mode !== 'zoo';
+  $('btnPanda').disabled = mode !== 'zoo'; $('btnMenu').disabled = mode !== 'zoo';
   $('btnPanda').textContent = left > 0 ? `🐼 낮잠 중 (${left}초)` : '🐼 아기 판다 감시하기';
   const st = mode === 'zoo' ? stationAt() : null, k = keeper;
   let t = '도구함에 서 있으면 도구를 챙기고, 우리 안에서 기다리면 일을 해요.';
@@ -744,15 +789,20 @@ let resetArmed = false;
 $('btnReset').onclick = () => {
   if (!resetArmed) { resetArmed = true; $('btnReset').textContent = '정말 처음부터? 한 번 더 누르세요'; setTimeout(() => { resetArmed = false; $('btnReset').textContent = '처음부터 다시 하기'; }, 3000); return; }
   resetArmed = false; $('btnReset').textContent = '처음부터 다시 하기';
-  S = freshState(); visitors = []; floats = []; keeper.carry = null; keeper.work = null; closeOverlay(); renderShop(); save();
+  S = freshState(); visitors = []; floats = []; keeper.carry = null; keeper.work = null; keeper.x = 150; keeper.y = 250; renderShop(); save(); closeMenu();
 };
 
 cv.addEventListener('pointerdown', e => {
   const r = cv.getBoundingClientRect();
-  const x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * H;
+  const x = rotated ? (e.clientY - r.top) / r.height * W : (e.clientX - r.left) / r.width * W;
+  const y = rotated ? (r.right - e.clientX) / r.width * H : (e.clientY - r.top) / r.height * H;
   if (mode === 'panda') tapPanda(x, y);
 });
 const ACTIONS = { g: special };
+function openMenu() { if (mode !== 'zoo') return; renderShop(); mode = 'menu'; for (const k in keys) keys[k] = false; $('menu').hidden = false; $('btnMenuClose').focus(); }
+function closeMenu() { $('menu').hidden = true; mode = 'zoo'; }
+$('btnMenu').onclick = openMenu;
+$('btnMenuClose').onclick = closeMenu;
 document.querySelectorAll('.dpad button').forEach(b => {
   const k = b.dataset.k;
   const down = e => { e.preventDefault(); keys[k] = true; b.classList.add('on'); try { b.setPointerCapture(e.pointerId); } catch (_) {} };
@@ -765,6 +815,7 @@ window.addEventListener('keydown', e => {
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) e.preventDefault();
   if (e.target.tagName === 'BUTTON' && (k === ' ' || k === 'Enter')) return;
+  if (k === 'Escape' && mode === 'menu') { closeMenu(); return; }
   keys[k] = true;
   if (ACTIONS[k] && !e.repeat) ACTIONS[k]();
 });
@@ -784,7 +835,9 @@ function frame(now) {
 
 function start(data) {
   S = deserialize(data && data.save) || load() || freshState();
-  renderShop(); updateHud();
+  renderShop(); layout(); updateHud();
+  mode = 'title';
+  showOverlay('🌻 해바라기 동물원', '사육사가 되어 동물들에게 밥을 주고, 우리를 치우고 가꿔서 관람객을 모아 보세요. 화면이 가로로 켜져요. 휴대폰은 옆으로 돌려서 하세요.', '게임 시작', () => { closeOverlay(); goLandscape(); layout(); });
   requestAnimationFrame(frame);
 }
 window.claude?.hot?.snapshot?.(() => ({ save: serialize() }));
