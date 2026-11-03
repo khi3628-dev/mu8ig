@@ -268,6 +268,7 @@ function drawBackdrop() {
   ctx.setTransform(v.res * v.s, 0, 0, v.res * v.s, v.res * v.ox, v.res * v.oy);
 }
 window.addEventListener('resize', layout);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => layout());
 window.addEventListener('orientationchange', () => setTimeout(layout, 150));
 document.addEventListener('fullscreenchange', layout);
 function goLandscape() {
@@ -398,7 +399,7 @@ function updateCrew(dt) {
       if (c.target >= 0 && !unpaid) {
         if (c.role === 'food' && S.money < FEED_COST * p.count) continue;
         c.t += dt;
-        if (c.t >= TOOLS[c.role].time * 1.4) { finishJob(c.target, c.role); c.target = -1; c.t = 0; }
+        if (c.t >= TOOLS[c.role].time * 1.4) { finishJob(c.target, c.role, true); c.target = -1; c.t = 0; }
       }
     }
   }
@@ -426,14 +427,14 @@ function drawStaff(c) {
 }
 // keeper jobs: stand in a station to pick up its tool, then stand in a pen that needs it
 const needs = (p, t) => t === 'food' ? p.hunger < 90 : t === 'clean' ? isDirty(p) : p.garden < 85;
-function finishJob(i, t) {
+function finishJob(i, t, byStaff = false) {
   const p = S.pens[i], r = slotRect(i), x = r.x + r.w / 2, y = r.y + 60;
   if (t === 'food') {
     const cost = FEED_COST * p.count;
     if (!pay(cost)) return;
     p.hunger = 100; p.fedT = 2.5; float(x, y, `냠냠! -${cost}원`, '#ffe9a8');
   } else if (t === 'clean') {
-    const fast = p.dirtyT < 5;
+    const fast = !byStaff && p.dirtyT < 5;
     p.dirtyT = null; p.poops = []; p.cleanCD = cleanEvery(p);
     if (fast) S.money += 10;
     float(x, y, fast ? '빠른 청소! +10원' : '반짝반짝!', '#ffffff');
@@ -448,10 +449,9 @@ function updateWork(dt) {
   const st = stationAt(), i = currentSlot(), p = i >= 0 ? S.pens[i] : null, t = keeper.carry, pad = padAt();
   let job = null;
   if (!pad || pad.key !== keeper.padLock) keeper.padLock = pad ? keeper.padLock : null;
-  if (pad) {
-    if (pad.ok && pad.key !== keeper.padLock && S.money >= pad.cost)
-      job = { key: pad.key, need: PAD_TIME, done: () => { if (!pay(pad.cost)) return; pad.act(); keeper.padLock = pad.key; save(); } };
-  } else if (st && st !== t) job = { key: 'st:' + st, need: EQUIP_TIME, done: () => { keeper.carry = st; float(keeper.x, keeper.y - 40, `${TOOLS[st].e} ${TOOLS[st].tool} 챙김!`, '#ffffff'); } };
+  if (pad && pad.ok && pad.key !== keeper.padLock && S.money >= pad.cost)
+    job = { key: pad.key, need: PAD_TIME, done: () => { if (!pay(pad.cost)) return; pad.act(); keeper.padLock = pad.key; save(); } };
+  else if (st && st !== t) job = { key: 'st:' + st, need: EQUIP_TIME, done: () => { keeper.carry = st; float(keeper.x, keeper.y - 40, `${TOOLS[st].e} ${TOOLS[st].tool} 챙김!`, '#ffffff'); } };
   else if (t && isPen(p) && needs(p, t)) {
     if (t === 'food' && S.money < FEED_COST * p.count) {
       if (performance.now() - moneyWarned > 3000) { moneyWarned = performance.now(); toast('먹이 살 돈이 부족해요'); }
@@ -977,7 +977,8 @@ function updateHud() {
   const st = mode === 'zoo' ? stationAt() : null, k = keeper;
   let t = '도구함에 서 있으면 도구를 챙기고, 우리 안에서 기다리면 일을 해요.';
   if (st) t = k.carry === st ? `${TOOLS[st].e} ${TOOLS[st].tool}를 이미 들고 있어요.` : `${TOOLS[st].e} ${TOOLS[st].name}: 잠깐 기다리면 ${TOOLS[st].tool}를 챙겨요…`;
-  const pad = mode === 'zoo' ? padAt() : null;
+  const pad0 = mode === 'zoo' ? padAt() : null;
+  const pad = pad0 && (!k.work || k.work.key === pad0.key) ? pad0 : null; // a pen/station job in progress wins
   if (pad) t = !pad.ok ? pad.why : k.padLock === pad.key ? '완료! 다시 하려면 발판에서 내려왔다가 올라가세요' : S.money < pad.cost ? `${pad.icon} ${pad.text}${pad.desc ? ' (' + pad.desc + ')' : ''} — ${won(pad.cost - S.money)}이 더 필요해요` : `${pad.icon} ${pad.text} ${won(pad.cost)}${pad.desc ? ' (' + pad.desc + ')' : ''} — 서 있으면 진행돼요…`;
   else if (h && !p) { const o = offerFor(h.i); t = o ? `빈 우리예요. 아래 발판에 서 있으면 ${o.emoji} ${josa(o.name, '을', '를')} ${won(o.price)}에 사요.` : '모든 동물을 다 모았어요!'; }
   else if (h && p.pending) t = `${A[p.pending].emoji} ${A[p.pending].name} 배달 중… ${Math.ceil(p.t)}초 남았어요.`;
@@ -1027,6 +1028,8 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => { keys[e.key.length === 1 ? e.key.toLowerCase() : e.key] = false; });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+document.addEventListener('visibilitychange', () => { if (document.hidden && S) save(); });
+window.addEventListener('pagehide', () => { if (S) save(); });
 
 let last = performance.now(), hudT = 0;
 function frame(now) {
