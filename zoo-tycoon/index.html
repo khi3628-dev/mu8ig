@@ -50,6 +50,7 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: 1.25rem; mar
 #game.rot .side.right { width: clamp(110px, 16vh, 170px); }
 .side.right button { width: 100%; font-size: .9rem; padding: 8px 8px; line-height: 1.25; word-break: keep-all; text-wrap: balance; }
 .status { position: absolute; left: var(--pl); right: var(--pr); bottom: var(--pb); z-index: 2; color: #f3f6ea; background: rgba(35,48,31,.72); border-radius: 999px; padding: 3px 12px; font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.quest { background: var(--sun); color: var(--ink); border-radius: 999px; padding: 1px 10px; margin-right: 8px; font-family: var(--font-display); }
 .status b { color: #f6e7a8; font-family: var(--font-display); font-weight: 400; }
 .dpad { display: grid; grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(2, 44px); gap: 4px; grid-template-areas: ". up ." "left down right"; }
 .dpad button { padding: 0; font-size: 1.15rem; touch-action: none; background: var(--bark); box-shadow: 0 3px 0 #553d26; }
@@ -97,6 +98,7 @@ h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.2rem; marg
       <span class="chip" id="sStaff" hidden>👷 <b id="sStaffN">0</b>명 · -<b id="sWage">0</b>원/분</span>
       <span class="chip warn" id="sSmell" hidden title="냄새 나는 우리가 있어서 관람객이 줄었어요">🤢 냄새!</span>
     </div>
+    <button id="btnSound" type="button" class="ghost" aria-label="소리 끄기">🔊</button>
     <button id="btnMenu" type="button" class="ghost">☰ 메뉴</button>
   </div>
 
@@ -116,7 +118,7 @@ h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.2rem; marg
     <button id="btnPanda" type="button" class="alt">🐼 아기 판다 감시하기</button>
   </div>
 
-  <div class="status" id="targetText"></div>
+  <div class="status" id="statusBar"><span class="quest" id="questText" hidden></span><span id="targetText"></span></div>
 
   <div class="layer" id="overlay" hidden>
     <div class="panel">
@@ -227,7 +229,7 @@ function layout() {
   game.classList.toggle('narrow', gw < 780);
   game.style.width = gw + 'px'; game.style.height = gh + 'px';
   game.style.transform = rotated ? `translateX(${vw}px) rotate(90deg)` : 'none';
-  const hud = document.querySelector('.hud'), status = $('targetText');
+  const hud = document.querySelector('.hud'), status = $('statusBar');
   const left = document.querySelector('.side.left'), right = document.querySelector('.side.right');
   const top = hud.offsetTop + hud.offsetHeight + 6, bottom = gh - status.offsetTop + 6;
   const lw = visibleW(left) ? left.offsetLeft + left.offsetWidth + 8 : 8;
@@ -303,7 +305,7 @@ function freshState() {
   return { money: 200, total: 0, pens, cooldownEnd: 0, staff: { food: 0, clean: 0, garden: 0 } };
 }
 function serialize() {
-  return { money: S.money, total: S.total, cooldownEnd: S.cooldownEnd, staff: S.staff,
+  return { money: S.money, total: S.total, cooldownEnd: S.cooldownEnd, staff: S.staff, quest: S.quest || 0, savedAt: Date.now(),
     pens: S.pens.map(p => !p ? null : p.pending ? { pending: p.pending, t: p.t } :
       { a: p.a, level: p.level, count: p.count, deco: p.deco, fac: p.fac, hunger: p.hunger, garden: p.garden, cleanCD: p.cleanCD, dirtyT: p.dirtyT, circusCD: p.circusCD }) };
 }
@@ -321,7 +323,7 @@ function deserialize(d) {
   while (pens.length < 8) pens.push(null);
   const st = d.staff || {}, staff = {};
   for (const r in STAFF) staff[r] = clamp(Math.floor(+st[r] || 0), 0, MAX_STAFF);
-  return { money: +d.money || 0, total: +d.total || 0, cooldownEnd: +d.cooldownEnd || 0, pens, staff };
+  return { money: +d.money || 0, total: +d.total || 0, cooldownEnd: +d.cooldownEnd || 0, pens, staff, quest: clamp(Math.floor(+d.quest || 0), 0, 99), savedAt: +d.savedAt || 0 };
 }
 function save() { try { localStorage.setItem('sunflower-zoo', JSON.stringify(serialize())); } catch (e) {} }
 function load() { try { return deserialize(JSON.parse(localStorage.getItem('sunflower-zoo'))); } catch (e) { return null; } }
@@ -425,6 +427,146 @@ function drawStaff(c) {
     ctx.strokeStyle = '#6fa8dc'; ctx.beginPath(); ctx.arc(c.x + 18, c.y - 18, 8, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); ctx.stroke();
   }
 }
+// ---------- sound: synthesized effects + background music ----------
+// Background music: assets/bgm.mp3 if it exists, otherwise a small synthesized loop.
+const SND = { on: true, ctx: null, master: null, file: null, usingFile: false, synth: null };
+try { SND.on = localStorage.getItem('sunflower-zoo-sound') !== 'off'; } catch (e) {}
+function audio() {
+  if (SND.ctx) return SND.ctx;
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
+  SND.ctx = new AC(); SND.master = SND.ctx.createGain(); SND.master.gain.value = SND.on ? 0.5 : 0; SND.master.connect(SND.ctx.destination);
+  return SND.ctx;
+}
+function tone(freq, dur, type = 'sine', vol = 0.2, when = 0, slide = 0, dest) {
+  const c = audio(); if (!c) return;
+  const t = c.currentTime + when, o = c.createOscillator(), g = c.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(freq * slide, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(dest || SND.master); o.start(t); o.stop(t + dur + 0.03);
+}
+let noiseBuf = null;
+function noise(dur, vol, when = 0, freq = 2500) {
+  const c = audio(); if (!c) return;
+  if (!noiseBuf) { noiseBuf = c.createBuffer(1, c.sampleRate, c.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+  const t = c.currentTime + when, src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+  src.buffer = noiseBuf; f.type = 'bandpass'; f.frequency.value = freq;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f); f.connect(g); g.connect(SND.master); src.start(t); src.stop(t + dur);
+}
+const sfxLast = {};
+function sfx(name) {
+  if (!SND.on || !SND.ctx) return;
+  const now = performance.now(); if (now - (sfxLast[name] || 0) < (name === 'coin' ? 140 : 70)) return; sfxLast[name] = now;
+  ({
+    coin:   () => { tone(1318, 0.07, 'square', 0.035); tone(1760, 0.12, 'square', 0.035, 0.06); },
+    feed:   () => { tone(330, 0.09, 'triangle', 0.22, 0, 0.7); tone(300, 0.09, 'triangle', 0.22, 0.13, 0.7); },
+    clean:  () => { noise(0.25, 0.12, 0, 3000); tone(1568, 0.14, 'sine', 0.08, 0.18); tone(2093, 0.2, 'sine', 0.08, 0.26); },
+    garden: () => { [523, 659, 784].forEach((f, i) => tone(f, 0.14, 'sine', 0.12, i * 0.08)); },
+    equip:  () => tone(520, 0.1, 'sine', 0.16, 0, 1.9),
+    buy:    () => { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.15, 'square', 0.05, i * 0.08)); },
+    quest:  () => { [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.18, 'triangle', 0.16, i * 0.09)); },
+    boing:  () => tone(220, 0.28, 'sine', 0.22, 0, 2.6),
+    bad:    () => tone(196, 0.35, 'sawtooth', 0.05, 0, 0.6),
+  })[name]?.();
+}
+// synthesized cute loop: C - Am - F - G, eighth notes at 112 bpm
+const midi = n => 440 * Math.pow(2, (n - 69) / 12);
+const MEL = [76, 79, 81, 79, 76, 0, 72, 74, 76, 76, 74, 72, 69, 0, 0, 0, 77, 81, 79, 77, 76, 0, 72, 0, 74, 76, 74, 72, 74, 0, 0, 0];
+const BASS = [48, 45, 41, 43];
+function startSynth() {
+  const c = audio(); if (!c || SND.synth) return;
+  const bus = c.createGain(); bus.gain.value = 0.55; bus.connect(SND.master);
+  const step = 60 / 112 / 2; let next = c.currentTime + 0.1, i = 0;
+  SND.synth = setInterval(() => {
+    while (next < c.currentTime + 0.3) {
+      const when = next - c.currentTime, n = MEL[i % 32], bar = Math.floor((i % 32) / 8);
+      if (n) tone(midi(n), step * 1.6, 'triangle', 0.07, when, 0, bus);
+      if (i % 8 === 0 || i % 8 === 4) tone(midi(BASS[bar] + (i % 8 === 4 ? 7 : 0)), step * 3, 'sine', 0.09, when, 0, bus);
+      if (i % 4 === 2) tone(midi(BASS[bar] + 36), 0.12, 'sine', 0.025, when, 0, bus); // little glockenspiel tick
+      next += step; i++;
+    }
+  }, 100);
+}
+function startMusic() {
+  if (!audio()) return;
+  SND.ctx.resume && SND.ctx.resume();
+  if (SND.usingFile || SND.synth) return;
+  if (!SND.file) { SND.file = new Audio('assets/bgm.mp3'); SND.file.loop = true; SND.file.volume = 0.45; }
+  SND.file.muted = !SND.on;
+  SND.file.play().then(() => { SND.usingFile = true; }).catch(() => startSynth());
+}
+function setSound(on) {
+  SND.on = on;
+  try { localStorage.setItem('sunflower-zoo-sound', on ? 'on' : 'off'); } catch (e) {}
+  if (SND.master) SND.master.gain.value = on ? 0.5 : 0;
+  if (SND.file) SND.file.muted = !on;
+  $('btnSound').textContent = on ? '🔊' : '🔇'; $('btnSound').setAttribute('aria-label', on ? '소리 끄기' : '소리 켜기');
+  if (on) startMusic();
+}
+
+// ---------- goals: a guided list of things to do, each with a reward and an arrow ----------
+const species = () => S.pens.filter(isPen).length;
+const penPt = i => { if (i < 0) return null; const r = slotRect(i); return { x: r.x + r.w / 2, y: r.y + 92 }; };
+const stationPt = t => ({ x: TOOLS[t].x, y: STATION_Y + 26, up: true }); // below the station, pointing up (the hire pad sits above)
+const padPt = (i, kind) => { const d = i >= 0 && padsFor(i).find(q => q.key.startsWith(kind + ':')); return d ? { x: d.x + d.w / 2, y: d.y + 4 } : null; };
+const firstPen = (f = () => true) => S.pens.findIndex(p => isPen(p) && f(p));
+function cheapestBuy() {
+  let best = -1, cost = 1e9;
+  S.pens.forEach((p, i) => { if (!p) { const d = padsFor(i)[0]; if (d && d.cost < cost) { cost = d.cost; best = i; } } });
+  return best;
+}
+const QUESTS = [
+  { t: '먹이 창고에 서서 먹이 바구니 챙기기', r: 10, done: () => keeper.carry === 'food', at: () => stationPt('food') },
+  { t: '먹이 바구니를 들고 우리 안에서 밥 주기', r: 20, ev: 'feed', at: () => keeper.carry === 'food' ? penPt(firstPen()) : stationPt('food') },
+  { t: '청소도구함에서 청소 도구 챙기기', r: 10, done: () => keeper.carry === 'clean', at: () => stationPt('clean') },
+  { t: '똥이 생긴 우리 청소하기', r: 20, ev: 'clean', at: () => keeper.carry === 'clean' ? penPt(firstPen(isDirty)) ?? penPt(firstPen()) : stationPt('clean') },
+  { t: '정원 도구로 우리 가꾸기', r: 20, ev: 'garden', at: () => keeper.carry === 'garden' ? penPt(firstPen(p => p.garden < 85)) : stationPt('garden') },
+  { t: '빈 우리 발판에 서서 새 동물 사기', r: 50, ev: 'buy', done: () => species() >= 2, at: () => padPt(cheapestBuy(), 'buy') },
+  { t: '⬆ 발판으로 우리 업그레이드', r: 50, ev: 'up', done: () => S.pens.some(p => isPen(p) && p.level >= 2), at: () => padPt(firstPen(), 'up') },
+  { t: '➕ 발판으로 동물 한 마리 더 들이기', r: 50, ev: 'add', done: () => S.pens.some(p => isPen(p) && p.count >= 2), at: () => padPt(firstPen(p => p.count < CAPACITY[p.level]), 'add') },
+  { t: '🔧 발판으로 우리 설비 설치', r: 80, ev: 'fac', done: () => S.pens.some(p => isPen(p) && p.fac >= 1), at: () => padPt(firstPen(), 'fac') },
+  { t: '👷 도구함 위 발판에서 직원 고용', r: 100, ev: 'hire', done: () => Object.values(S.staff).some(n => n > 0), at: () => ({ x: TOOLS.garden.x, y: STATION_Y - 52 }) },
+  { t: '🎨 꾸미기나 🎪 서커스 해 보기', r: 80, ev: 'special', at: () => penPt(firstPen()) },
+  { t: '🐼 아기 판다 감시 성공하기', r: 100, ev: 'panda' },
+  { t: '동물 5종 모으기', r: 300, done: () => species() >= 5, at: () => padPt(cheapestBuy(), 'buy') },
+  { t: '⭐ 인기도 50 만들기', r: 500, done: () => popularity() >= 50 },
+  { t: '동물 8종 모두 모으기', r: 1000, done: () => species() >= 8, at: () => padPt(cheapestBuy(), 'buy') },
+];
+const curQuest = () => QUESTS[S.quest || 0];
+function completeQuest() {
+  const q = curQuest(); if (!q) return;
+  S.money += q.r; S.quest = (S.quest || 0) + 1;
+  float(keeper.x, keeper.y - 50, `🎯 목표 완료! +${q.r}원`, '#fff3a8'); toast(`🎯 목표 완료: ${q.t} (+${q.r}원)`); sfx('quest'); save();
+}
+function quest(ev) { const q = curQuest(); if (q && q.ev === ev) completeQuest(); }
+function checkQuest() { const q = curQuest(); if (q && q.done && q.done()) completeQuest(); }
+function drawQuestArrow() {
+  const q = curQuest(), pt = q && q.at && q.at(); if (!pt) return;
+  const bob = Math.abs(Math.sin(performance.now() / 260)) * 8, d = pt.up ? -1 : 1; // d: 1 = arrow above pointing down
+  const tip = pt.y - d * (4 + bob), base = tip - d * 20;
+  ctx.fillStyle = '#f2b632'; ctx.strokeStyle = '#7a4f0a'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(pt.x - 14, base); ctx.lineTo(pt.x + 14, base); ctx.lineTo(pt.x, tip); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.rect(pt.x - 5, base - d * 10, 10, d * 10); ctx.fill(); ctx.stroke();
+}
+
+// ---------- offline earnings: what the zoo made while the game was closed ----------
+function offlineEarnings(minutes) {
+  const m = Math.min(minutes, 8 * 60);
+  const fullPop = S.pens.reduce((s, p) => s + (isPen(p) ? penAppeal(p) : 0), 0);
+  const roles = Object.keys(STAFF).filter(r => S.staff[r] > 0).length;
+  const eff = 0.1 + 0.2 * roles;                       // no staff: 10%, all three roles covered: 70%
+  const wage = Object.keys(STAFF).reduce((sum, r) => sum + S.staff[r] * STAFF[r].wage, 0);
+  const gross = 14 * fullPop * m * eff;
+  return { m, eff, net: Math.max(0, Math.round(gross - wage * m)) };
+}
+function awayText(minutes) {
+  if (minutes < 1) return '';
+  const o = offlineEarnings(minutes); S.money += o.net;
+  const span = o.m >= 60 ? `${Math.floor(o.m / 60)}시간 ${Math.round(o.m % 60)}분` : `${Math.round(o.m)}분`;
+  return o.net > 0 ? `자리를 비운 ${span} 동안 동물원이 ${won(o.net)}을 벌었어요! (효율 ${Math.round(o.eff * 100)}%${o.eff < 0.7 ? ', 역할별로 직원을 모두 두면 더 벌어요' : ''})` : `자리를 비운 ${span} 동안은 월급 때문에 남은 돈이 없었어요.`;
+}
+
 // keeper jobs: stand in a station to pick up its tool, then stand in a pen that needs it
 const needs = (p, t) => t === 'food' ? p.hunger < 90 : t === 'clean' ? isDirty(p) : p.garden < 85;
 function finishJob(i, t, byStaff = false) {
@@ -433,12 +575,14 @@ function finishJob(i, t, byStaff = false) {
     const cost = FEED_COST * p.count;
     if (!pay(cost)) return;
     p.hunger = 100; p.fedT = 2.5; float(x, y, `냠냠! -${cost}원`, '#ffe9a8');
+    if (!byStaff) { sfx('feed'); quest('feed'); }
   } else if (t === 'clean') {
     const fast = !byStaff && p.dirtyT < 5;
     p.dirtyT = null; p.poops = []; p.cleanCD = cleanEvery(p);
     if (fast) S.money += 10;
     float(x, y, fast ? '빠른 청소! +10원' : '반짝반짝!', '#ffffff');
-  } else { p.garden = 100; float(x, y, '🌿 싱그러워졌어요!', '#e8f5d8'); }
+    if (!byStaff) { sfx('clean'); quest('clean'); }
+  } else { p.garden = 100; float(x, y, '🌿 싱그러워졌어요!', '#e8f5d8'); if (!byStaff) { sfx('garden'); quest('garden'); } }
 }
 function stationAt() {
   for (const t in TOOLS) { const r = stationRect(t); if (keeper.x > r.x && keeper.x < r.x + r.w && keeper.y > r.y && keeper.y < r.y + r.h) return t; }
@@ -450,8 +594,8 @@ function updateWork(dt) {
   let job = null;
   if (!pad || pad.key !== keeper.padLock) keeper.padLock = pad ? keeper.padLock : null;
   if (pad && pad.ok && pad.key !== keeper.padLock && S.money >= pad.cost)
-    job = { key: pad.key, need: PAD_TIME, done: () => { if (!pay(pad.cost)) return; pad.act(); keeper.padLock = pad.key; save(); } };
-  else if (st && st !== t) job = { key: 'st:' + st, need: EQUIP_TIME, done: () => { keeper.carry = st; float(keeper.x, keeper.y - 40, `${TOOLS[st].e} ${TOOLS[st].tool} 챙김!`, '#ffffff'); } };
+    job = { key: pad.key, need: PAD_TIME, done: () => { if (!pay(pad.cost)) return; pad.act(); keeper.padLock = pad.key; sfx('buy'); quest(pad.key.split(':')[0]); save(); } };
+  else if (st && st !== t) job = { key: 'st:' + st, need: EQUIP_TIME, done: () => { keeper.carry = st; sfx('equip'); float(keeper.x, keeper.y - 40, `${TOOLS[st].e} ${TOOLS[st].tool} 챙김!`, '#ffffff'); } };
   else if (t && isPen(p) && needs(p, t)) {
     if (t === 'food' && S.money < FEED_COST * p.count) {
       if (performance.now() - moneyWarned > 3000) { moneyWarned = performance.now(); toast('먹이 살 돈이 부족해요'); }
@@ -505,7 +649,7 @@ function special() {
   if (a.sp === 'deco') {
     if (p.deco >= DECOS.length) { toast('더 꾸밀 자리가 없어요'); return; }
     if (!pay(decoCost(a, p.deco))) return;
-    const d = DECOS[p.deco++];
+    const d = DECOS[p.deco++]; sfx('buy'); quest('special');
     float(r.x + r.w / 2, r.y + 50, `${d.e} ${d.n} 완성!`, '#ffffff'); save();
     return;
   }
@@ -514,7 +658,7 @@ function special() {
   if (p.hunger < 50) { toast('배가 고파서 공연을 못 해요. 밥부터 주세요'); return; }
   if (isDirty(p)) { toast('우리가 더러워서 공연을 못 해요. 청소부터 해 주세요'); return; }
   p.circusT = CIRCUS_TIME; p.circusCD = CIRCUS_CD;
-  float(r.x + r.w / 2, r.y + 50, '🎪 서커스 시작!', '#fff3a8');
+  float(r.x + r.w / 2, r.y + 50, '🎪 서커스 시작!', '#fff3a8'); sfx('buy'); quest('special');
   for (let k = 0; k < 3 + p.count * 2; k++) spawnVisitor(i);
 }
 
@@ -554,7 +698,7 @@ function updateVisitors(dt) {
           if (v.watched) { tip = Math.round(penAppeal(p) * 1.5) + 5; v.face = '🤩'; }
           else if (h >= 60) { tip = Math.round(penAppeal(p) * h / 100); v.face = '😍'; }
           else v.face = h < 35 ? '😖' : '🙂';
-          if (tip) { S.money += tip; float(v.x, v.y - 30, `+${tip}`, '#ffe066'); }
+          if (tip) { S.money += tip; float(v.x, v.y - 30, `+${tip}`, '#ffe066'); sfx('coin'); }
           v.faceT = 1.5;
         }
         v.stops.shift(); v.watched = false;
@@ -595,7 +739,7 @@ function updateZoo(dt) {
       if (p.t <= 0) {
         const a = A[p.pending]; S.pens[i] = makePen(a.id, { hunger: 80 });
         const r = slotRect(i); float(r.x + r.w / 2, r.y + 60, `${a.emoji} 도착!`, '#fff3a8');
-        toast(`${a.emoji} ${josa(a.name, '이', '가')} 도착했어요!`); renderShop(); save();
+        toast(`${a.emoji} ${josa(a.name, '이', '가')} 도착했어요!`); sfx('buy'); renderShop(); save();
       }
       return;
     }
@@ -604,7 +748,7 @@ function updateZoo(dt) {
     p.circusCD = Math.max(0, p.circusCD - dt);
     p.fedT = Math.max(0, (p.fedT || 0) - dt);
     p.circusT = Math.max(0, p.circusT - dt);
-    if (isDirty(p)) p.dirtyT += dt;
+    if (isDirty(p)) { const was = isSmelly(p); p.dirtyT += dt; if (!was && isSmelly(p)) sfx('bad'); }
     else { p.cleanCD -= dt; if (p.cleanCD <= 0) { p.cleanCD = 0; p.dirtyT = 0; makeMess(p); } }
     for (const c of p.critters) {
       c.t -= dt;
@@ -820,6 +964,7 @@ function drawZoo(dt) {
   const cur = currentSlot();
   for (let i = 0; i < 8; i++) { drawPen(i); drawPads(i); }
   drawPads(-1);
+  if (mode === 'zoo') drawQuestArrow();
   if (cur >= 0) { const r = slotRect(cur); ctx.strokeStyle = '#fff3a8'; ctx.lineWidth = 3; ctx.setLineDash([6, 5]); rrect(r.x - 5, r.y - 5, r.w + 10, r.h + 10, 15); ctx.stroke(); ctx.setLineDash([]); }
   const ents = [...visitors.map(v => ({ y: v.y, d: () => drawVisitor(v) })), ...crew.map(c => ({ y: c.y, d: () => drawStaff(c) })), { y: keeper.y, d: drawKeeper }];
   ents.sort((a, b) => a.y - b.y).forEach(e => e.d());
@@ -869,7 +1014,7 @@ function updatePanda(dt) {
     const dx = b.tx - b.x, dy = b.ty - b.y, d = Math.hypot(dx, dy);
     if (d > 3) { const m = Math.min(d, sp * dt); b.x += dx / d * m; b.y += dy / d * m; b.flip = dx < 0; }
     else if (b.state === 'run') {
-      PG.hearts--; float(b.x, b.y - 20, '도망갔다!', '#ffb3a3');
+      PG.hearts--; float(b.x, b.y - 20, '도망갔다!', '#ffb3a3'); sfx('bad');
       b.x = CX; b.y = CY; b.state = 'calm'; b.wt = 0;
     } else if (b.state === 'back') { b.state = 'calm'; b.wt = 0; }
   }
@@ -880,12 +1025,13 @@ function tapPanda(x, y) {
   for (const b of PG.babies) { const d = Math.hypot(b.x - x, b.y - y); if (d < bd) { bd = d; best = b; } }
   if (!best) return;
   if (best.state === 'run') {
-    PG.score++; best.state = 'back'; best.tx = CX + rand(-50, 50); best.ty = CY + rand(-30, 30);
+    PG.score++; sfx('boing'); best.state = 'back'; best.tx = CX + rand(-50, 50); best.ty = CY + rand(-30, 30);
     float(best.x, best.y - 24, '안으로 들어가자!', '#ffffff');
   } else float(best.x, best.y - 24, '쿨쿨…', '#e8f5d8');
 }
 function endPanda() {
   const win = PG.hearts > 0;
+  if (win) { sfx('quest'); quest('panda'); }
   const mult = S.pens.some(p => p && p.a === 'panda') ? 2 : 1;
   const reward = (PG.score * 8 + (win ? 40 : 0)) * mult;
   S.money += reward; S.cooldownEnd = Date.now() + 40000; save();
@@ -958,6 +1104,9 @@ function setBtn(id, show, html, enabled = true, cls) {
   if (cls !== undefined) b.classList.toggle('urgent', cls);
 }
 function updateHud() {
+  if (mode === 'zoo') checkQuest();
+  const q = curQuest();
+  $('questText').hidden = !q; if (q) $('questText').textContent = `🎯 ${q.t} · +${won(q.r)}`;
   $('sMoney').textContent = Math.floor(S.money).toLocaleString();
   $('sVisitors').textContent = visitors.length;
   $('sTotal').textContent = S.total.toLocaleString();
@@ -1028,7 +1177,13 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => { keys[e.key.length === 1 ? e.key.toLowerCase() : e.key] = false; });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
-document.addEventListener('visibilitychange', () => { if (document.hidden && S) save(); });
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (!S) return;
+  if (document.hidden) { save(); hiddenAt = Date.now(); return; }
+  if (hiddenAt) { const t = awayText((Date.now() - hiddenAt) / 60000); hiddenAt = 0; if (t) { toast(t); sfx('coin'); save(); } }
+});
+$('btnSound').onclick = () => setSound(!SND.on);
 window.addEventListener('pagehide', () => { if (S) save(); });
 
 let last = performance.now(), hudT = 0;
@@ -1047,8 +1202,11 @@ function start(data) {
   S = deserialize(data && data.save) || load() || freshState();
   syncCrew();
   renderShop(); layout(); updateHud();
+  const away = S.savedAt ? awayText((Date.now() - S.savedAt) / 60000) : '';
   mode = 'title';
-  showOverlay('🌻 해바라기 동물원', '사육사가 되어 동물들에게 밥을 주고, 우리를 치우고 가꿔서 관람객을 모아 보세요. 화면이 가로로 켜져요. 휴대폰은 옆으로 돌려서 하세요.', '게임 시작', () => { closeOverlay(); goLandscape(); layout(); });
+  $('btnSound').textContent = SND.on ? '🔊' : '🔇';
+  showOverlay('🌻 해바라기 동물원', away || '사육사가 되어 동물들에게 밥을 주고, 우리를 치우고 가꿔서 관람객을 모아 보세요. 화면이 가로로 켜져요. 휴대폰은 옆으로 돌려서 하세요.',
+    '게임 시작', () => { closeOverlay(); goLandscape(); layout(); startMusic(); if (away) sfx('coin'); });
   requestAnimationFrame(frame);
 }
 window.claude?.hot?.snapshot?.(() => ({ save: serialize() }));
