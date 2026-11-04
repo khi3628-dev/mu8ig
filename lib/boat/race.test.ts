@@ -233,6 +233,27 @@ describe("water ski race", () => {
       expect(s.contacts).toBe(1);
     });
 
+    it("범퍼카처럼 부딪히면 서로 반대쪽으로 튕겨 나가고, 튕김은 금방 잦아든다", () => {
+      const s = createRace(() => 0.5);
+      s.time = 0;
+      s.boostPads = [];
+      const [p, ai] = s.racers;
+      // 플레이어가 멈춰 있는 AI의 옆구리를 들이받는다
+      ai.x = p.x + Math.cos(p.heading) * 3.1;
+      ai.y = p.y + Math.sin(p.heading) * 3.1;
+      ai.heading = p.heading + Math.PI / 2;
+      ai.speed = 0;
+      p.speed = 20;
+      updateRace(s, 0.01, idle);
+      const along = (r: typeof p) => r.kx * Math.cos(p.heading) + r.ky * Math.sin(p.heading);
+      expect(along(p)).toBeLessThan(-2); // 플레이어는 뒤로 튕기고
+      expect(along(ai)).toBeGreaterThan(2); // AI는 앞으로 밀려난다
+      expect(Math.hypot(p.kx, p.ky)).toBeLessThanOrEqual(7);
+      ai.x += 100; // 떨어뜨려 놓고 1초 뒤
+      for (let i = 0; i < 100; i++) updateRace(s, 0.01, idle);
+      expect(Math.hypot(p.kx, p.ky)).toBeLessThan(0.2);
+    });
+
     it("플레이어보다 뒤처진 AI는 빨라지고, 앞선 AI는 늦춰진다", () => {
       const run = (playerLap: number) => {
         const s = createRace(() => 0.5);

@@ -25,6 +25,11 @@ const REVERSE_SPEED = 7; // 후진 최고 속도 (약 25km/h)
 const REVERSE_ACCEL = 6;
 const HULL_RADIUS = 1.6; // 제트스키끼리 부딪히는 반경 (m)
 const CONTACT_SLOW = 0.95; // 부딪힐 때마다 남는 속도 비율
+// 범퍼카처럼 부딪히면 서로 튕겨 나간다: 튕김 속도 = 기본 + 부딪힌 속도 × 비율 (상한 있음), 금방 잦아든다
+const BUMP_BASE = 2.5;
+const BUMP_GAIN = 0.5;
+const BUMP_MAX = 7;
+const BUMP_DECAY = 4; // 1/초
 const PACK_GAIN = 0.06; // AI 접전 보정: 체크포인트 하나 차이당 속도 ±6%
 const PACK_MAX = 0.12; // 보정 상한 ±12%
 
@@ -64,6 +69,8 @@ export interface Racer {
   finishTime: number | null;
   boost: number;
   slow: number;
+  kx: number; // 부딪혀 튕겨 나가는 속도 (m/s)
+  ky: number;
 }
 
 export interface FishSpecies { name: string; emoji: string; value: number; weight: number }
@@ -173,6 +180,8 @@ export function createRace(
       finishTime: null,
       boost: 0,
       slow: 0,
+      kx: 0,
+      ky: 0,
     };
   });
   const boostPads = course
@@ -258,6 +267,11 @@ export function updateRace(state: RaceState, dt: number, input: RaceInput, rand:
     }
     r.x += Math.cos(r.heading) * r.speed * dt;
     r.y += Math.sin(r.heading) * r.speed * dt;
+    r.x += r.kx * dt;
+    r.y += r.ky * dt;
+    const fade = Math.exp(-BUMP_DECAY * dt);
+    r.kx *= fade;
+    r.ky *= fade;
     r.boost = Math.max(0, r.boost - dt);
     r.slow = Math.max(0, r.slow - dt);
     for (const pad of state.boostPads) {
@@ -306,7 +320,7 @@ function steerPlayer(state: RaceState, r: Racer, input: RaceInput, dt: number) {
   if (r.speed > max) r.speed = Math.max(max, r.speed - BRAKE * dt);
 }
 
-// 제트스키끼리 겹치면 서로 밀어내고 속도를 잃는다
+// 제트스키끼리 겹치면 서로 밀어내고, 부딪히는 순간 튕겨 나가며 속도를 잃는다
 function collide(state: RaceState) {
   const rs = state.racers;
   for (let i = 0; i < rs.length; i++) {
@@ -327,6 +341,15 @@ function collide(state: RaceState) {
       b.y += ny * push;
       if (state.touching.has(key)) continue; // 이미 맞닿아 있으면 밀어내기만
       state.touching.add(key);
+      // 서로 다가오던 속도가 클수록 세게 튕긴다
+      const closing = Math.max(0,
+        (Math.cos(a.heading) * a.speed + a.kx - Math.cos(b.heading) * b.speed - b.kx) * nx +
+        (Math.sin(a.heading) * a.speed + a.ky - Math.sin(b.heading) * b.speed - b.ky) * ny);
+      const bump = Math.min(BUMP_MAX, BUMP_BASE + BUMP_GAIN * closing);
+      a.kx -= nx * bump;
+      a.ky -= ny * bump;
+      b.kx += nx * bump;
+      b.ky += ny * bump;
       a.speed *= CONTACT_SLOW;
       b.speed *= CONTACT_SLOW;
       if (a.isPlayer || b.isPlayer) state.contacts += 1;

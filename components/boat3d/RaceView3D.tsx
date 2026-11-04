@@ -562,7 +562,13 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
       camHeading += angleDiff(p0.heading, camHeading) * (1 - Math.exp(-4 * dt));
       const cx = Math.cos(camHeading), cz = Math.sin(camHeading);
       const intro = Math.max(0, -state.time) / 3;
-      if (state.contacts > seenContacts) shake = 0.3;
+      if (state.contacts > seenContacts) {
+        shake = 0.3;
+        // 범퍼카처럼 살짝 튀어 오른다
+        const hop = skis[0].hop;
+        hop.vy = Math.max(hop.vy, 2.4);
+        hop.airborne = true;
+      }
       seenContacts = state.contacts;
       shake = Math.max(0, shake - dt);
       const jolt = shake * 1.2;

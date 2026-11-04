@@ -84,6 +84,8 @@ struct Racer {
   std::optional<double> finishTime;
   double boost = 0;
   double slow = 0;
+  double kx = 0; // 부딪혀 튕겨 나가는 속도 (m/s)
+  double ky = 0;
 };
 
 struct FishSpecies {

@@ -21,6 +21,11 @@ constexpr double kReverseSpeed = 7;  // 후진 최고 속도 (약 25km/h)
 constexpr double kReverseAccel = 6;
 constexpr double kHullRadius = 1.6;  // 제트스키끼리 부딪히는 반경 (m)
 constexpr double kContactSlow = 0.95;
+// 범퍼카처럼 부딪히면 서로 튕겨 나간다: 기본 + 부딪힌 속도 × 비율 (상한 있음), 금방 잦아든다
+constexpr double kBumpBase = 2.5;
+constexpr double kBumpGain = 0.5;
+constexpr double kBumpMax = 7;
+constexpr double kBumpDecay = 4; // 1/초
 constexpr double kPackGain = 0.06;   // AI 접전 보정: 체크포인트 하나 차이당 속도 ±6%
 constexpr double kPackMax = 0.12;
 
@@ -78,7 +83,7 @@ void steerPlayer(const RaceState& state, Racer& r, const RaceInput& input, doubl
   if (r.speed > max) r.speed = maxD(max, r.speed - kBrake * dt);
 }
 
-// 제트스키끼리 겹치면 서로 밀어내고, 부딪히는 순간에만 속도를 잃는다
+// 제트스키끼리 겹치면 서로 밀어내고, 부딪히는 순간 튕겨 나가며 속도를 잃는다
 void collide(RaceState& state) {
   auto& rs = state.racers;
   for (int i = 0; i < static_cast<int>(rs.size()); i++) {
@@ -100,6 +105,15 @@ void collide(RaceState& state) {
       b.y += ny * push;
       if (state.touching.count(key)) continue; // 이미 맞닿아 있으면 밀어내기만
       state.touching.insert(key);
+      // 서로 다가오던 속도가 클수록 세게 튕긴다
+      const double closing = maxD(0,
+        (std::cos(a.heading) * a.speed + a.kx - std::cos(b.heading) * b.speed - b.kx) * nx +
+        (std::sin(a.heading) * a.speed + a.ky - std::sin(b.heading) * b.speed - b.ky) * ny);
+      const double bump = std::min(kBumpMax, kBumpBase + kBumpGain * closing);
+      a.kx -= nx * bump;
+      a.ky -= ny * bump;
+      b.kx += nx * bump;
+      b.ky += ny * bump;
       a.speed *= kContactSlow;
       b.speed *= kContactSlow;
       if (a.isPlayer || b.isPlayer) state.contacts += 1;
@@ -333,6 +347,11 @@ void updateRace(RaceState& state, double dt, const RaceInput& input, const RandF
     }
     r.x += std::cos(r.heading) * r.speed * dt;
     r.y += std::sin(r.heading) * r.speed * dt;
+    r.x += r.kx * dt;
+    r.y += r.ky * dt;
+    const double fade = std::exp(-kBumpDecay * dt);
+    r.kx *= fade;
+    r.ky *= fade;
     r.boost = maxD(0, r.boost - dt);
     r.slow = maxD(0, r.slow - dt);
     for (const Vec2& pad : state.boostPads) {
