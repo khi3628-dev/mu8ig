@@ -491,16 +491,24 @@ function startSynth() {
 function startMusic() {
   if (!audio()) return;
   SND.ctx.resume && SND.ctx.resume();
-  if (SND.usingFile || SND.synth) return;
-  if (!SND.file) { SND.file = new Audio('assets/bgm.mp3'); SND.file.loop = true; SND.file.volume = 0.45; }
-  SND.file.muted = !SND.on;
-  SND.file.play().then(() => { SND.usingFile = true; }).catch(() => startSynth());
+  if (SND.usingFile || SND.synth || SND.loading) return;
+  // decode the file and loop it with WebAudio: gapless, unlike <audio loop> with MP3
+  SND.loading = true;
+  fetch('assets/bgm.mp3').then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+    .then(b => new Promise((ok, no) => SND.ctx.decodeAudioData(b, ok, no)))
+    .then(buf => {
+      const src = SND.ctx.createBufferSource(), g = SND.ctx.createGain();
+      src.buffer = buf; src.loop = true; g.gain.value = 0.8;
+      src.connect(g); g.connect(SND.master); src.start();
+      SND.file = src; SND.usingFile = true;
+    })
+    .catch(() => startSynth())
+    .finally(() => { SND.loading = false; });
 }
 function setSound(on) {
   SND.on = on;
   try { localStorage.setItem('sunflower-zoo-sound', on ? 'on' : 'off'); } catch (e) {}
   if (SND.master) SND.master.gain.value = on ? 0.5 : 0;
-  if (SND.file) SND.file.muted = !on;
   $('btnSound').textContent = on ? '🔊' : '🔇'; $('btnSound').setAttribute('aria-label', on ? '소리 끄기' : '소리 켜기');
   if (on) startMusic();
 }
