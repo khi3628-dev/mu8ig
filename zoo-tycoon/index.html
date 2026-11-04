@@ -157,7 +157,7 @@ const STAFF = {
   clean:  { name: '청소 담당', wage: 20, cost: [400, 1000] },
   garden: { name: '정원사',   wage: 10, cost: [250, 800] },
 };
-const MAX_STAFF = 2, STAFF_SPEED = 80;
+const MAX_STAFF = 2, STAFF_SPEED = 110, STAFF_WORK = 1.0; // STAFF_WORK: work time relative to the keeper
 // pen facilities, installed in this order from the 🔧 pad
 const FAC = [
   { e: '🥣', n: '급식기', base: 120, k: 0.3, what: '배고파지는 속도 절반' },
@@ -194,7 +194,7 @@ function patterns() {
 }
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
 const ANIMALS = [
-  { id: 'rabbit',   name: '토끼',   emoji: '🐰', price: 0,    appeal: 2,  sp: 'deco',   ground: '#b9de8a' },
+  { id: 'rabbit',   name: '토끼',   emoji: '🐰', price: 0,    appeal: 3,  sp: 'deco',   ground: '#b9de8a' },
   { id: 'penguin',  name: '펭귄',   emoji: '🐧', price: 150,  appeal: 3,  sp: 'circus', ground: '#d6ecf3', water: true },
   { id: 'monkey',   name: '원숭이', emoji: '🐒', price: 300,  appeal: 4,  sp: 'circus', ground: '#a9cf78', tree: true },
   { id: 'zebra',    name: '얼룩말', emoji: '🦓', price: 500,  appeal: 5,  sp: 'deco',   ground: '#e3d39a' },
@@ -300,7 +300,7 @@ function makeMess(p) { p.poops = Array.from({ length: 2 + p.count }, () => ({ x:
 function freshState() {
   const pens = Array(8).fill(null);
   pens[0] = makePen('rabbit', { hunger: 60, garden: 55, cleanCD: 12 });
-  return { money: 100, total: 0, pens, cooldownEnd: 0, staff: { food: 0, clean: 0, garden: 0 } };
+  return { money: 200, total: 0, pens, cooldownEnd: 0, staff: { food: 0, clean: 0, garden: 0 } };
 }
 function serialize() {
   return { money: S.money, total: S.total, cooldownEnd: S.cooldownEnd, staff: S.staff,
@@ -399,7 +399,7 @@ function updateCrew(dt) {
       if (c.target >= 0 && !unpaid) {
         if (c.role === 'food' && S.money < FEED_COST * p.count) continue;
         c.t += dt;
-        if (c.t >= TOOLS[c.role].time * 1.4) { finishJob(c.target, c.role, true); c.target = -1; c.t = 0; }
+        if (c.t >= TOOLS[c.role].time * STAFF_WORK) { finishJob(c.target, c.role, true); c.target = -1; c.t = 0; }
       }
     }
   }
@@ -420,7 +420,7 @@ function drawStaff(c) {
   rrect(c.x - 20, c.y + 19, 40, 13, 6); ctx.fillStyle = 'rgba(63,111,168,.9)'; ctx.fill();
   label(unpaid ? '쉬는 중' : STAFF[c.role].name, c.x, c.y + 26, 9, '#ffffff');
   if (c.t > 0) {
-    const f = clamp(c.t / (TOOLS[c.role].time * 1.4), 0, 1);
+    const f = clamp(c.t / (TOOLS[c.role].time * STAFF_WORK), 0, 1);
     ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(35,48,31,.35)'; ctx.beginPath(); ctx.arc(c.x + 18, c.y - 18, 8, 0, 7); ctx.stroke();
     ctx.strokeStyle = '#6fa8dc'; ctx.beginPath(); ctx.arc(c.x + 18, c.y - 18, 8, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); ctx.stroke();
   }
