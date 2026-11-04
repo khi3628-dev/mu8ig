@@ -7,6 +7,7 @@ import { applyBestRun, applyRaceReward, loadSave, playerStats, racePerks, type S
 import { ART, artBg } from "@/lib/boat/art";
 import ParadiseView, { type BoardProps } from "./ParadiseView";
 import RaceView from "./RaceView";
+import { music } from "./music";
 
 const SAVE_KEY = "yacht-paradise-save";
 
@@ -51,6 +52,14 @@ export default function BoatApp({
   const [screen, setScreen] = useState<Screen>({ kind: "title" });
 
   useEffect(() => writeSave(save), [save]);
+
+  // 화면별 배경음악 (레이스 중 마지막 랩 곡은 레이스 화면이 바꾼다). 우승 징글이 아직 없어 1위는 타이틀 곡
+  const resultRank = screen.kind === "result" ? screen.result.rank : 0;
+  useEffect(() => {
+    if (screen.kind === "result") music.play(resultRank === 1 ? "title" : "lose");
+    else music.play(screen.kind);
+  }, [screen.kind, resultRank]);
+  useEffect(() => () => music.play(null), []);
 
   const finishRace = useCallback((result: RaceResult) => {
     setSave((prev) => {

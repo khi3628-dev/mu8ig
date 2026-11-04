@@ -9,6 +9,7 @@ import {
 import { formatTime, ghostPose, type GhostRun } from "@/lib/boat/ghost";
 import CatchBanner from "./CatchBanner";
 import SplitBadge from "./SplitBadge";
+import { music } from "./music";
 
 const PX = 3; // 1미터당 픽셀
 
@@ -55,6 +56,9 @@ export default function RaceView({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const touchRef = useRef({ gas: false, brake: false, left: false, right: false, fish: false });
   const [hud, setHud] = useState<Hud>(() => toHud(createRace()));
+
+  // 마지막 랩이면 더 급한 곡으로
+  useEffect(() => music.play(hud.lap === LAPS ? "race-final" : "race"), [hud.lap]);
 
   useEffect(() => {
     const canvas = canvasRef.current!;

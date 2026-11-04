@@ -14,6 +14,7 @@ import {
 import { chop, createHop, stepHop } from "@/lib/boat3d/bounce";
 import { sfxEvents, sfxSnapshot } from "@/lib/boat3d/sfx";
 import { RaceAudio, readMuted, writeMuted } from "./raceAudio";
+import { music } from "@/components/boat/music";
 import { boundaryPoints } from "@/lib/boat3d/track";
 import { HORIZON, SUN_DIR, createEnvironment, createSky, createWater, waveHeight } from "@/lib/boat3d/water";
 
@@ -144,12 +145,16 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
   const miniRef = useRef<HTMLCanvasElement>(null);
   const touchRef = useRef({ gas: false, brake: false, left: false, right: false, fish: false, gear: false, view: false });
   const [hud, setHud] = useState<Hud>(() => toHud(createRace(), false));
+
+  // 마지막 랩이면 더 급한 곡으로
+  useEffect(() => music.play(hud.lap === LAPS ? "race-final" : "race"), [hud.lap]);
   const [muted, setMuted] = useState(readMuted);
   const audioRef = useRef<RaceAudio | null>(null);
   const toggleMute = () =>
     setMuted((m) => {
       audioRef.current?.setMuted(!m);
       writeMuted(!m);
+      music.setMuted(!m);
       return !m;
     });
 
