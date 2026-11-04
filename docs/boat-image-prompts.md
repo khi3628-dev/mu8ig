@@ -3,6 +3,39 @@
 이미 있는 이미지(`public/boat/`): title(경주 장면), podium(우승 시상대), ski(제트스키 대표 컷), marlin(황금 청새치), avatar(얼굴).
 아래 10장은 **아직 없는 화면**을 채우는 용도입니다. 결과 파일은 `public/boat/<파일명>.webp`로 저장하면 됩니다.
 
+## 우선 6장 (지금 게임에 바로 쓸 곳이 있는 것)
+
+공통 규칙(주인공 고정 문구 + 공통 스타일)은 아래와 같이 그대로 붙입니다. 1·2·3·6은 아래 10장 목록과 같은 장면을 다듬은 것이고, 4·5는 새 기능(범퍼카 충돌, 1인칭) 컷입니다.
+
+| # | 파일명 | 쓸 곳 | 비율 |
+|---|---|---|---|
+| 1 | result-lose | 결과 화면 4~6위 (지금은 ski 이미지로 대신) | 16:9 |
+| 2 | paradise-bg | 섬 건설 화면 배경 | 16:9 |
+| 3 | race-start | 레이스 출발 카운트다운 | 16:9 |
+| 4 | bump | 범퍼카 충돌 소개 컷 | 16:9 |
+| 5 | first-person | 1인칭 시점 안내 | 16:9 |
+| 6 | rivals | 라이벌 5명 소개 | 16:9 |
+
+1. result-lose
+> The protagonist sitting on the jet ski drifting slowly just after the finish gate, helmet visor raised, catching breath and looking toward a distant podium where a rival in a red suit celebrates, golden late-afternoon light, calm water, determined rather than sad expression, wide banner composition with the subject in the center third
+
+2. paradise-bg
+> Soft aerial three-quarter view of a private tropical island lagoon at midday, white sand, a few palm trees, a wooden dock with the white-and-gold jet ski parked, calm turquoise shallow water, lots of open sand and water in the center left empty for game UI, gentle depth of field, airy and bright
+
+3. race-start
+> Low wide-angle shot at water level of six stand-up jet skis lined up side by side at a floating start line, the protagonist in the center, rivals in red, orange, green, purple and sky-blue racing suits, tall orange gate with a black-and-white checkered banner overhead, three red start lights glowing, engines idling with small foam around the hulls, tension before the start
+
+4. bump
+> Playful side-by-side collision between the protagonist's white-and-gold jet ski and a rival's red jet ski, both hulls bouncing apart like bumper cars, a burst of white spray at the point of contact, both riders leaning away with surprised but fun expressions, frozen water droplets, sunny turquoise sea, dynamic three-quarter angle
+
+5. first-person
+> First-person view from the rider's eyes on a speeding stand-up jet ski, white-and-gold handlebars and gloved hands with gold stripes in the lower frame, the pointed white nose of the jet ski cutting through turquoise water, orange checkpoint gate and red-and-white buoys ahead, a rival jet ski slightly ahead on the right, motion blur and spray, horizon slightly tilted into a turn
+
+6. rivals
+> Group lineup of five jet ski racers standing confidently on a luxury marina dock beside their jet skis, each in a fitted racing suit of a single color: red, orange, green, purple, sky blue, helmets held under the arm, diverse adult men and women, varied confident poses, superyachts in the background, equal spacing like a character-select screen
+
+---
+
 ## 공통 규칙 (모든 프롬프트 뒤에 붙이기)
 
 캐릭터 고정 문구 — 주인공이 나오는 컷에 그대로 넣으세요:
