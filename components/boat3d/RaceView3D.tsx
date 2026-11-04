@@ -35,9 +35,10 @@ interface Hud {
   gear: "D" | "R";
   boost: boolean;
   message: string;
+  firstPerson: boolean;
 }
 
-function toHud(s: RaceState, canFish: boolean, reverse = false): Hud {
+function toHud(s: RaceState, canFish: boolean, reverse = false, firstPerson = false): Hud {
   const p = s.racers[0];
   return {
     time: s.time,
@@ -52,6 +53,7 @@ function toHud(s: RaceState, canFish: boolean, reverse = false): Hud {
     gear: reverse ? "R" : "D",
     boost: p.boost > 0,
     message: s.messageTimer > 0 ? s.message : "",
+    firstPerson,
   };
 }
 
@@ -140,7 +142,7 @@ function mulberry(seed: number) {
 export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const miniRef = useRef<HTMLCanvasElement>(null);
-  const touchRef = useRef({ gas: false, brake: false, left: false, right: false, fish: false, gear: false });
+  const touchRef = useRef({ gas: false, brake: false, left: false, right: false, fish: false, gear: false, view: false });
   const [hud, setHud] = useState<Hud>(() => toHud(createRace(), false));
   const [muted, setMuted] = useState(readMuted);
   const audioRef = useRef<RaceAudio | null>(null);
@@ -303,6 +305,13 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
     const keys = new Set<string>();
     let fishPressed = false;
     let reverse = false; // 기어 R
+    // 1인칭: 조작은 가속·브레이크·좌우만. 기어는 D 고정, 낚시는 가까이 가면 자동
+    let firstPerson = false;
+    let autoCatch = false;
+    const toggleView = () => {
+      firstPerson = !firstPerson;
+      reverse = false;
+    };
     let audio: RaceAudio | null = null;
     try {
       audio = new RaceAudio(readMuted());
@@ -316,9 +325,10 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
     let seenContacts = 0;
     const onKeyDown = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
-      if ((k === " " || k === "f") && !e.repeat) fishPressed = true;
+      if ((k === " " || k === "f") && !e.repeat && !firstPerson) fishPressed = true;
       audio?.resume();
-      if (k === "q" && !e.repeat) {
+      if (k === "v" && !e.repeat) toggleView();
+      if (k === "q" && !e.repeat && !firstPerson) {
         reverse = !reverse;
         audio?.play({ type: "gear" });
       }
@@ -353,17 +363,21 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
       const t = now / 1000;
       const on = (...ks: string[]) => ks.some((k) => keys.has(k));
       const touch = touchRef.current;
-      if (touch.gear) {
+      if (touch.view) {
+        toggleView();
+        touch.view = false;
+      }
+      if (touch.gear && !firstPerson) {
         reverse = !reverse;
-        touch.gear = false;
         audio?.play({ type: "gear" });
       }
+      touch.gear = false;
       const throttle = (on("w", "arrowup") || touch.gas ? 1 : 0) - (on("s", "arrowdown") || touch.brake ? 1 : 0);
       throttleOn = throttle > 0;
       updateRace(state, dt, {
         throttle,
         steer: (on("d", "arrowright") || touch.right ? 1 : 0) - (on("a", "arrowleft") || touch.left ? 1 : 0),
-        fish: fishPressed || touch.fish,
+        fish: firstPerson ? autoCatch : fishPressed || touch.fish,
         reverse,
       });
       fishPressed = false;
@@ -508,6 +522,7 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
         o.rotation.set(0, -(f.id * 1.7), Math.cos(phase * Math.PI) * 0.9);
         if (Math.hypot(f.x - p0.x, f.y - p0.y) <= state.stats.catchRadius) canFish = true;
       }
+      autoCatch = canFish;
       for (const [id, o] of fishObjs) {
         if (!alive.has(id)) {
           scene.remove(o);
@@ -546,13 +561,25 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
       seenContacts = state.contacts;
       shake = Math.max(0, shake - dt);
       const jolt = shake * 1.2;
-      camera.position.set(
-        p0.x - cx * (13 + intro * 14) + (Math.random() - 0.5) * jolt,
-        5.6 + intro * 9 + (Math.random() - 0.5) * jolt,
-        p0.y - cz * (13 + intro * 14) + (Math.random() - 0.5) * jolt,
-      );
-      camera.lookAt(p0.x + cx * 9, 1.8, p0.y + cz * 9);
-      const fov = 62 + Math.min(Math.abs(p0.speed) / 30, 1.3) * 9 + (p0.boost > 0 ? 6 : 0);
+      const me = skis[0].group;
+      if (firstPerson) {
+        // 라이더 헬멧 바로 앞에서 앞을 본다. 제트스키의 출렁임·기울기를 그대로 따라간다
+        me.updateMatrixWorld();
+        const eye = me.localToWorld(new THREE.Vector3(0.45, 1.45, 0));
+        const aim = me.localToWorld(new THREE.Vector3(12, 1.0, 0));
+        camera.position.set(eye.x + (Math.random() - 0.5) * jolt * 0.3, eye.y + (Math.random() - 0.5) * jolt * 0.3, eye.z);
+        camera.lookAt(aim);
+        camera.near = 0.12;
+      } else {
+        camera.position.set(
+          p0.x - cx * (13 + intro * 14) + (Math.random() - 0.5) * jolt,
+          5.6 + intro * 9 + (Math.random() - 0.5) * jolt,
+          p0.y - cz * (13 + intro * 14) + (Math.random() - 0.5) * jolt,
+        );
+        camera.lookAt(p0.x + cx * 9, 1.8, p0.y + cz * 9);
+        camera.near = 0.5;
+      }
+      const fov = (firstPerson ? 74 : 62) + Math.min(Math.abs(p0.speed) / 30, 1.3) * 9 + (p0.boost > 0 ? 6 : 0);
       camera.fov += (fov - camera.fov) * (1 - Math.exp(-5 * dt));
       camera.updateProjectionMatrix();
 
@@ -562,7 +589,7 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
       hudTimer -= dt;
       if (hudTimer <= 0) {
         hudTimer = 0.1;
-        setHud(toHud(state, canFish, reverse));
+        setHud(toHud(state, canFish, reverse, firstPerson));
       }
       if (state.done && !finished) {
         finished = true;
@@ -650,10 +677,18 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 bg-black/50 px-3 py-1.5 text-[11px] leading-5 tracking-wide text-white/85 pointer-coarse:hidden">
-        <Key>W</Key> 가속 <Key>S</Key> 감속 <Key>A</Key><Key>D</Key> 조향 <Key>Q</Key> 기어 <Key>SPACE</Key> 낚시 <Key>M</Key> 소리
+        {hud.firstPerson ? (
+          <>
+            <Key>W</Key> 가속 <Key>S</Key> 브레이크 <Key>A</Key><Key>D</Key> 회전 · 낚시 자동 <Key>V</Key> 3인칭
+          </>
+        ) : (
+          <>
+            <Key>W</Key> 가속 <Key>S</Key> 감속 <Key>A</Key><Key>D</Key> 조향 <Key>Q</Key> 기어 <Key>SPACE</Key> 낚시 <Key>V</Key> 1인칭 <Key>M</Key> 소리
+          </>
+        )}
       </div>
 
-      {hud.canFish && hud.time >= 0 && (
+      {hud.canFish && hud.time >= 0 && !hud.firstPerson && (
         <div className="pointer-events-none absolute bottom-28 left-1/2 -translate-x-1/2 pointer-coarse:bottom-48">
           <Slant className="bg-amber-400 px-5 py-1.5 text-black">
             <span className="text-lg font-black italic tracking-wide">SPACE · 낚아채기</span>
@@ -668,8 +703,9 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
         </div>
         <div className="flex items-end gap-3">
           <div className="flex flex-col gap-3">
-            <TouchButton label="D/R" onPointerDown={() => { touchRef.current.gear = true; }} />
-            <TouchButton label="CATCH" onPointerDown={() => { touchRef.current.fish = true; }} />
+            <TouchButton label={hud.firstPerson ? "3P" : "1P"} onPointerDown={() => { touchRef.current.view = true; }} />
+            {!hud.firstPerson && <TouchButton label="D/R" onPointerDown={() => { touchRef.current.gear = true; }} />}
+            {!hud.firstPerson && <TouchButton label="CATCH" onPointerDown={() => { touchRef.current.fish = true; }} />}
           </div>
           <div className="flex flex-col gap-3">
             <TouchButton label="▲" {...hold("gas")} />
