@@ -1,0 +1,16 @@
+{
+  "name": "요트 파라다이스 레이싱",
+  "short_name": "요트 레이싱",
+  "description": "제트스키 레이스로 돈을 벌어 나만의 요트 섬을 짓는 게임",
+  "start_url": "/boat3d",
+  "scope": "/boat",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0369a1",
+  "theme_color": "#0369a1",
+  "lang": "ko",
+  "icons": [
+    { "src": "/boat/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/boat/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -58,7 +58,10 @@ export class RaceAudio {
   private recWater: Loop | null = null;
   private recWind: Loop | null = null;
 
-  constructor(muted: boolean) {
+  private volume = 1; // 설정의 효과음 음량 0..1
+
+  constructor(muted: boolean, volume = 1) {
+    this.volume = volume;
     const ctx = (this.ctx = new AudioContext());
     // 전체를 컴프레서로 묶어 소리끼리 뭉치게 (레이싱 게임 믹스의 기본)
     const comp = ctx.createDynamicsCompressor();
@@ -67,7 +70,7 @@ export class RaceAudio {
     comp.attack.value = 0.005;
     comp.release.value = 0.2;
     this.master = ctx.createGain();
-    this.master.gain.value = muted ? 0 : MASTER;
+    this.master.gain.value = muted ? 0 : MASTER * volume;
     this.master.connect(comp).connect(ctx.destination);
 
     this.noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
@@ -128,7 +131,7 @@ export class RaceAudio {
   }
 
   setMuted(m: boolean) {
-    this.master.gain.setTargetAtTime(m ? 0 : MASTER, this.ctx.currentTime, 0.02);
+    this.master.gain.setTargetAtTime(m ? 0 : MASTER * this.volume, this.ctx.currentTime, 0.02);
   }
 
   update(f: AudioFrame) {

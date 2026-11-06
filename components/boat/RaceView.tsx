@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FISH, LAPS, TIME_LIMIT, TRACK_HALF, createRace, fishCoins, fishValue, legendCatchActive, raceResult, standings, updateRace,
   splitNow,
-  type PlayerStats, type RacePerks, type RaceResult, type RaceState, type Racer,
+  type RaceState, type Racer,
 } from "@/lib/boat/race";
-import { formatTime, ghostPose, type GhostRun } from "@/lib/boat/ghost";
+import { formatTime, ghostPose } from "@/lib/boat/ghost";
 import CatchBanner from "./CatchBanner";
 import SplitBadge from "./SplitBadge";
 import { music } from "./music";
+import { skinById } from "@/lib/boat/meta";
+import type { RaceScreenProps } from "./BoatApp";
 
 const PX = 3; // 1미터당 픽셀
 
@@ -46,15 +48,15 @@ export default function RaceView({
   stats,
   perks,
   ghost,
+  skin,
   onFinish,
-}: {
-  stats: PlayerStats;
-  perks: RacePerks;
-  ghost: GhostRun | null;
-  onFinish: (r: RaceResult) => void;
-}) {
+}: RaceScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const touchRef = useRef({ gas: false, brake: false, left: false, right: false, fish: false });
+  const look = useMemo(() => {
+    const k = skinById(skin);
+    return { stripe: hex(k.stripe), suit: hex(k.suit) };
+  }, [skin]);
   const [hud, setHud] = useState<Hud>(() => toHud(createRace()));
 
   // 마지막 랩이면 더 급한 곡으로
@@ -110,7 +112,7 @@ export default function RaceView({
           if (trails[i].length > 30) trails[i].shift();
         });
       }
-      draw(ctx, state, trails, now / 1000);
+      draw(ctx, state, trails, now / 1000, look);
 
       hudTimer -= dt;
       if (hudTimer <= 0) {
@@ -131,7 +133,7 @@ export default function RaceView({
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("resize", onResize);
     };
-  }, [onFinish, stats, perks, ghost]);
+  }, [onFinish, stats, perks, ghost, look]);
 
   // 터치 버튼: 누르는 동안만 입력이 켜진다
   const hold = (k: TouchKey) => ({
@@ -223,6 +225,7 @@ function draw(
   s: RaceState,
   trails: { x: number; y: number }[][],
   t: number,
+  look: Look,
 ) {
   const { width: w, height: h } = ctx.canvas;
   const p = s.racers[0];
@@ -332,12 +335,16 @@ function draw(
     drawRacer(ctx, { ...s.racers[0], name: "베스트", color: "#7dd3fc", isPlayer: false, heading: g.heading, boost: 0 }, sx(g.x), sy(g.y));
     ctx.globalAlpha = 1;
   }
-  for (const r of [...s.racers].reverse()) drawRacer(ctx, r, sx(r.x), sy(r.y));
+  for (const r of [...s.racers].reverse()) drawRacer(ctx, r, sx(r.x), sy(r.y), look);
 
   drawMinimap(ctx, s);
 }
 
-function drawRacer(ctx: CanvasRenderingContext2D, r: Racer, x: number, y: number) {
+// 플레이어 제트스키 색 (스킨)
+interface Look { stripe: string; suit: string }
+const hex = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
+
+function drawRacer(ctx: CanvasRenderingContext2D, r: Racer, x: number, y: number, look?: Look) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(r.heading);
@@ -349,11 +356,11 @@ function drawRacer(ctx: CanvasRenderingContext2D, r: Racer, x: number, y: number
   ctx.lineTo(-14, 5);
   ctx.quadraticCurveTo(6, 7, 18, 0);
   ctx.fill();
-  ctx.strokeStyle = r.isPlayer ? "#d4af37" : r.color; // 플레이어는 골드 라인
+  ctx.strokeStyle = r.isPlayer ? (look?.stripe ?? "#d4af37") : r.color; // 플레이어는 스킨의 장식선
   ctx.lineWidth = 2;
   ctx.stroke();
   // 라이더 (플레이어는 흰색 슈트)
-  ctx.fillStyle = r.isPlayer ? "#ffffff" : r.color;
+  ctx.fillStyle = r.isPlayer ? (look?.suit ?? "#ffffff") : r.color;
   ctx.beginPath();
   ctx.ellipse(-2, 0, 6, 5, 0, 0, Math.PI * 2);
   ctx.fill();

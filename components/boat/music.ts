@@ -21,6 +21,8 @@ function readMuted() {
 class Music {
   private current: { track: Track; el: HTMLAudioElement } | null = null;
   private muted = false;
+  private paused = false; // 광고 중
+  private volume = 0.8; // 설정의 음악 음량 0..1
   private waiting = false;
 
   play(track: Track | null) {
@@ -38,11 +40,25 @@ class Music {
 
   setMuted(m: boolean) {
     this.muted = m;
+    this.apply();
+  }
+
+  setVolume(v: number) {
+    this.volume = v;
+    this.apply();
+  }
+
+  setPaused(p: boolean) {
+    this.paused = p;
+    this.apply();
+  }
+
+  private apply() {
     if (this.current) fade(this.current.el, this.target(), false);
   }
 
   private target() {
-    return this.muted || !this.current ? 0 : VOLUME[this.current.track];
+    return this.muted || this.paused || !this.current ? 0 : VOLUME[this.current.track] * this.volume;
   }
 
   private start() {

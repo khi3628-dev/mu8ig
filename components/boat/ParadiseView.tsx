@@ -22,11 +22,13 @@ export default function ParadiseView({
   onChange,
   onRace,
   board,
+  side,
 }: {
   save: Save;
   onChange: (s: Save) => void;
   onRace: () => void;
   board?: (props: BoardProps) => ReactNode; // 지정하면 2D 격자 대신 이 보드를 그린다
+  side?: ReactNode; // 오른쪽 칸 RACE 버튼 아래에 끼우는 패널 (미션·상점·설정)
 }) {
   const [tool, setTool] = useState<Tool>("palm");
   const [message, setMessage] = useState("");
@@ -112,6 +114,8 @@ export default function ParadiseView({
         >
           RACE · 레이스 출전
         </button>
+
+        {side}
 
         <PerkPanel save={save} />
 

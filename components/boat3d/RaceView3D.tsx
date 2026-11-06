@@ -8,13 +8,14 @@ import SplitBadge from "@/components/boat/SplitBadge";
 import { formatTime, ghostPose } from "@/lib/boat/ghost";
 import { FISH, LAPS, TIME_LIMIT, TRACK_HALF, createRace, fishCoins, fishValue, legendCatchActive, raceResult, splitNow, standings, updateRace, type RaceState } from "@/lib/boat/race";
 import {
-  PLAYER_STYLE, RIVAL_STYLES, createFish, createGate, createIsland, createJetSki, createSuperyacht,
+  RIVAL_STYLES, createFish, createGate, createIsland, createJetSki, createSuperyacht,
   disposeObject,
 } from "@/lib/boat3d/models";
 import { chop, createHop, stepHop } from "@/lib/boat3d/bounce";
 import { sfxEvents, sfxSnapshot } from "@/lib/boat3d/sfx";
 import { RaceAudio, readMuted, writeMuted } from "./raceAudio";
 import { music } from "@/components/boat/music";
+import { skinById } from "@/lib/boat/meta";
 import { boundaryPoints } from "@/lib/boat3d/track";
 import { HORIZON, SUN_DIR, createEnvironment, createSky, createWater, waveHeight } from "@/lib/boat3d/water";
 
@@ -140,7 +141,7 @@ function mulberry(seed: number) {
   };
 }
 
-export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreenProps) {
+export default function RaceView3D({ stats, perks, ghost, skin, sfx, onFinish }: RaceScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const miniRef = useRef<HTMLCanvasElement>(null);
   const touchRef = useRef({ gas: false, brake: false, left: false, right: false, fish: false, gear: false, view: false });
@@ -243,9 +244,10 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
       scene.add(y);
     }
 
-    // 레이서
+    // 레이서 (내 제트스키는 고른 스킨 색)
+    const playerStyle = skinById(skin);
     const skis = state.racers.map((r, i) => {
-      const s = createJetSki(i === 0 ? PLAYER_STYLE : RIVAL_STYLES[i - 1]);
+      const s = createJetSki(i === 0 ? playerStyle : RIVAL_STYLES[i - 1]);
       s.group.scale.setScalar(1.5);
       let tag: THREE.Sprite | null = null;
       if (i > 0) {
@@ -260,7 +262,7 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
     // 베스트 기록 고스트: 같은 제트스키를 반투명 하늘색으로
     let ghostSki: THREE.Group | null = null;
     if (state.ghost) {
-      ghostSki = createJetSki(PLAYER_STYLE).group;
+      ghostSki = createJetSki(playerStyle).group;
       const ghostMat = new THREE.MeshBasicMaterial({ color: 0x9be7ff, transparent: true, opacity: 0.35, depthWrite: false });
       ghostSki.traverse((o) => {
         if (o instanceof THREE.Mesh) o.material = ghostMat;
@@ -319,7 +321,7 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
     };
     let audio: RaceAudio | null = null;
     try {
-      audio = new RaceAudio(readMuted());
+      audio = new RaceAudio(readMuted(), sfx);
     } catch {
       // Web Audio를 쓸 수 없는 환경이면 소리 없이 진행
     }
@@ -628,7 +630,7 @@ export default function RaceView3D({ stats, perks, ghost, onFinish }: RaceScreen
       scene.environment?.dispose();
       renderer.dispose();
     };
-  }, [onFinish, stats, perks, ghost]);
+  }, [onFinish, stats, perks, ghost, skin, sfx]);
 
   const hold = (k: TouchKey) => ({
     onPointerDown: (e: React.PointerEvent) => {
