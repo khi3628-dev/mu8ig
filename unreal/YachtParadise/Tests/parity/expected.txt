@@ -1,23 +1,23 @@
 S1 step=0 t=-2.983333 p=209.926434,-1.210745 v=5.000000 lap=0 next=1 ai1=201.617086,-9.868386 contacts=0 caught=0 coins=0 rec=0 msg=
-S1 step=600 t=7.016667 p=39.533865,111.559144 v=44.100000 lap=0 next=3 ai1=78.795204,109.488691 contacts=0 caught=0 coins=0 rec=108 msg=MISS
-S1 step=1200 t=17.016667 p=-172.867832,-49.930319 v=38.033333 lap=0 next=6 ai1=-158.740161,10.646275 contacts=0 caught=1 coins=35 rec=258 msg=BOOST
-S1 step=1800 t=27.016667 p=146.176639,-55.272627 v=31.500000 lap=0 next=0 ai1=43.609916,-112.666270 contacts=0 caught=1 coins=35 rec=408 msg=MISS
-S1 step=2400 t=37.016667 p=-53.574106,100.642227 v=31.500000 lap=1 next=4 ai1=102.535575,87.223438 contacts=0 caught=1 coins=35 rec=558 msg=MISS
-S1 step=3000 t=47.016667 p=-65.215119,-103.729882 v=31.500000 lap=1 next=8 ai1=-158.689658,15.214782 contacts=0 caught=1 coins=35 rec=708 msg=MISS
-S1 step=3600 t=57.016667 p=149.303827,45.965675 v=32.433333 lap=2 next=2 ai1=55.541551,-110.241015 contacts=0 caught=1 coins=35 rec=858 msg=MISS
-S1 step=4200 t=67.016667 p=-160.117910,58.075567 v=44.100000 lap=2 next=5 ai1=88.285501,100.978529 contacts=0 caught=1 coins=35 rec=1008 msg=MISS
-S1 step=4800 t=77.016667 p=33.465503,-115.949806 v=44.100000 lap=2 next=8 ai1=-162.173444,-6.147200 contacts=0 caught=2 coins=70 rec=1158 msg=MISS
-S1 result rank=1 finished=true time=82.283333 prize=1695 coins=70 caught=2 splits=30 order=나/마르코/소피아/레오/아이라/카이
+S1 step=600 t=7.016667 p=39.533865,111.559144 v=44.100000 lap=0 next=3 ai1=57.038273,113.630015 contacts=0 caught=0 coins=0 rec=108 msg=MISS
+S1 step=1200 t=17.016667 p=-173.174249,-50.616849 v=38.266667 lap=0 next=6 ai1=-168.956758,-37.853619 contacts=1 caught=1 coins=35 rec=258 msg=BOOST
+S1 step=1800 t=27.016667 p=146.507610,-54.914660 v=31.500000 lap=0 next=0 ai1=110.870034,-77.739257 contacts=1 caught=1 coins=35 rec=408 msg=MISS
+S1 step=2400 t=37.016667 p=-54.085966,100.525185 v=31.500000 lap=1 next=4 ai1=-4.317480,104.882124 contacts=1 caught=1 coins=35 rec=558 msg=MISS
+S1 step=3000 t=47.016667 p=-64.694214,-103.795345 v=31.500000 lap=1 next=8 ai1=-120.653142,-89.937008 contacts=1 caught=1 coins=35 rec=708 msg=MISS
+S1 step=3600 t=57.016667 p=148.937634,46.344200 v=31.600000 lap=2 next=2 ai1=172.733880,-26.179452 contacts=1 caught=1 coins=35 rec=858 msg=MISS
+S1 step=4200 t=67.016667 p=-160.132427,57.340710 v=44.100000 lap=2 next=5 ai1=-89.485197,89.376066 contacts=1 caught=1 coins=35 rec=1008 msg=MISS
+S1 step=4800 t=77.016667 p=35.046473,-116.132250 v=44.100000 lap=2 next=8 ai1=-32.504531,-104.094574 contacts=1 caught=2 coins=70 rec=1158 msg=MISS
+S1 result rank=1 finished=true time=82.233333 prize=1695 coins=70 caught=2 splits=30 order=나/마르코/소피아/레오/아이라/카이
 S2 step=0 t=-2.983333 p=209.926434,-1.210745 v=0.000000 lap=0 next=1 ai1=201.617086,-9.868386 contacts=0 caught=0 coins=0 rec=0 msg=
-S2 step=600 t=7.016667 p=120.397386,87.380008 v=30.000000 lap=0 next=2 ai1=81.897907,110.640731 contacts=3 caught=0 coins=0 rec=108 msg=MISS
-S2 step=1200 t=17.016667 p=-109.072183,89.914636 v=30.466667 lap=0 next=4 ai1=-161.153130,31.336420 contacts=12 caught=0 coins=0 rec=258 msg=BOOST
-S2 step=1800 t=27.016667 p=-122.022304,-76.443280 v=18.266667 lap=0 next=7 ai1=-9.322736,-110.341289 contacts=16 caught=0 coins=0 rec=408 msg=MISS
-S2 step=2400 t=37.016667 p=90.318063,-80.160003 v=15.000000 lap=0 next=9 ai1=167.606950,26.608093 contacts=16 caught=0 coins=0 rec=558 msg=MISS
-S2 step=3000 t=47.016667 p=86.864999,91.481721 v=30.000000 lap=1 next=2 ai1=-53.046180,100.337871 contacts=16 caught=0 coins=0 rec=708 msg=MISS
-S2 step=3600 t=57.016667 p=-153.313155,54.242650 v=30.000000 lap=1 next=5 ai1=-151.472135,-78.686057 contacts=17 caught=0 coins=0 rec=858 msg=MISS
-S2 step=4200 t=67.016667 p=-20.136289,-97.471236 v=30.000000 lap=1 next=8 ai1=103.482498,-87.165656 contacts=17 caught=0 coins=0 rec=1008 msg=MISS
-S2 step=4800 t=77.016667 p=169.367826,-0.763017 v=20.833333 lap=2 next=1 ai1=93.665839,99.903243 contacts=17 caught=0 coins=0 rec=1158 msg=MISS
-S2 step=5400 t=87.016667 p=-9.829705,115.273646 v=25.000000 lap=2 next=3 ai1=-161.425406,58.224304 contacts=17 caught=1 coins=150 rec=1308 msg=MISS
-S2 step=6000 t=97.016667 p=-176.754861,-26.459653 v=30.000000 lap=2 next=6 ai1=-50.146330,-105.427856 contacts=17 caught=1 coins=150 rec=1458 msg=MISS
-S2 step=6600 t=107.016667 p=82.794821,-115.144735 v=30.000000 lap=2 next=9 ai1=183.698763,-16.765980 contacts=17 caught=1 coins=150 rec=1608 msg=MISS
-S2 result rank=4 finished=true time=112.100000 prize=450 coins=150 caught=1 splits=30 order=마르코/소피아/레오/나/아이라/카이
+S2 step=600 t=7.016667 p=118.673932,91.037002 v=30.000000 lap=0 next=2 ai1=63.662396,115.532253 contacts=0 caught=0 coins=0 rec=108 msg=MISS
+S2 step=1200 t=17.016667 p=-94.997907,91.628928 v=30.000000 lap=0 next=4 ai1=-164.576232,-6.213967 contacts=0 caught=0 coins=0 rec=258 msg=MISS
+S2 step=1800 t=27.016667 p=-112.004615,-93.469102 v=30.000000 lap=0 next=7 ai1=49.397968,-116.238433 contacts=0 caught=0 coins=0 rec=408 msg=MISS
+S2 step=2400 t=37.016667 p=139.965431,-59.101064 v=30.000000 lap=0 next=0 ai1=124.447023,70.373568 contacts=0 caught=0 coins=0 rec=558 msg=MISS
+S2 step=3000 t=47.016667 p=69.382048,110.088505 v=30.000000 lap=1 next=3 ai1=-132.519874,82.430486 contacts=0 caught=0 coins=0 rec=708 msg=MISS
+S2 step=3600 t=57.016667 p=-143.869238,43.240932 v=15.000000 lap=1 next=5 ai1=-72.306590,-102.549660 contacts=0 caught=0 coins=0 rec=858 msg=MISS
+S2 step=4200 t=67.016667 p=-7.314527,-100.134632 v=30.000000 lap=1 next=8 ai1=169.530194,-31.366844 contacts=0 caught=0 coins=0 rec=1008 msg=MISS
+S2 step=4800 t=77.016667 p=168.771469,1.649588 v=15.000000 lap=2 next=1 ai1=-0.356136,107.932465 contacts=0 caught=1 coins=30 rec=1158 msg=MISS
+S2 step=5400 t=87.016667 p=-27.573905,107.778203 v=30.000000 lap=2 next=3 ai1=-168.418451,-27.846378 contacts=0 caught=1 coins=30 rec=1308 msg=MISS
+S2 step=6000 t=97.016667 p=-179.787633,-56.081617 v=30.000000 lap=2 next=7 ai1=51.396452,-115.489971 contacts=0 caught=1 coins=30 rec=1458 msg=MISS
+S2 step=6600 t=107.016667 p=21.165484,-121.442678 v=39.566667 lap=2 next=8 ai1=241.521948,42.634746 contacts=0 caught=1 coins=30 rec=1608 msg=MISS
+S2 result rank=6 finished=true time=115.083333 prize=200 coins=30 caught=1 splits=30 order=마르코/소피아/레오/아이라/카이/나

@@ -173,7 +173,7 @@ export default function RaceView({
           <TouchButton label="▶" {...hold("right")} />
         </div>
         <div className="flex items-end gap-3">
-          <TouchButton label="CATCH" onPointerDown={() => { touchRef.current.fish = true; }} />
+          <TouchButton label="FISH" onPointerDown={() => { touchRef.current.fish = true; }} />
           <div className="flex flex-col gap-3">
             <TouchButton label="▲" {...hold("gas")} />
             <TouchButton label="▼" {...hold("brake")} />

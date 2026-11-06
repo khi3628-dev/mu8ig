@@ -26,8 +26,8 @@ constexpr double kBumpBase = 2.5;
 constexpr double kBumpGain = 0.5;
 constexpr double kBumpMax = 7;
 constexpr double kBumpDecay = 4; // 1/초
-constexpr double kPackGain = 0.06;   // AI 접전 보정: 체크포인트 하나 차이당 속도 ±6%
-constexpr double kPackMax = 0.12;
+constexpr double kPackGain = 0.08;   // AI 접전 보정: 체크포인트 하나 차이당 속도 ±8%
+constexpr double kPackMax = 0.22;    // 잘하는 사람에게도 긴장을 주고, 서툰 사람은 꼴찌로 고정되지 않게
 
 struct AiProfile {
   const char* name;
@@ -36,12 +36,13 @@ struct AiProfile {
   double topSpeed;
 };
 
+// 선두 AI는 업그레이드 없는 플레이어(30)보다 약간 빠르다 (웹 race.ts와 같은 값)
 constexpr std::array<AiProfile, 5> kAiProfiles = {{
-    {"마르코", "MARCO", 0xef4444, 27},
-    {"소피아", "SOFIA", 0xf97316, 26},
-    {"레오", "LEO", 0x22c55e, 25},
-    {"아이라", "AIRA", 0xa855f7, 24},
-    {"카이", "KAI", 0x0ea5e9, 23},
+    {"마르코", "MARCO", 0xef4444, 30.5},
+    {"소피아", "SOFIA", 0xf97316, 29.3},
+    {"레오", "LEO", 0x22c55e, 28.2},
+    {"아이라", "AIRA", 0xa855f7, 27.1},
+    {"카이", "KAI", 0x0ea5e9, 26},
 }};
 
 void say(RaceState& state, const std::string& msg) {

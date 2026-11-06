@@ -37,14 +37,14 @@ export const CATALOG: Record<ItemId, ItemDef> = {
 
 // 시설 하나당 레이스 효과. 같은 효과는 더해지고 PERK_CAPS에서 멈춘다.
 export const ITEM_PERKS: Partial<Record<ItemId, Partial<RacePerks>>> = {
-  sunbed: { prize: 0.03 },
-  villa: { prize: 0.1 },
-  palm: { fish: 0.02 },
-  bar: { fish: 0.15 },
-  yacht: { startSpeed: 5 },
-  superyacht: { startSpeed: 12 },
-  pool: { boost: 0.1 },
-  lighthouse: { boost: 0.3 },
+  sunbed: { prize: 0.05 },
+  villa: { prize: 0.2 },
+  palm: { fish: 0.04 },
+  bar: { fish: 0.25 },
+  yacht: { startSpeed: 8 },
+  superyacht: { startSpeed: 18 },
+  pool: { boost: 0.15 },
+  lighthouse: { boost: 0.45 },
 };
 
 export const PERK_CAPS: RacePerks = { prize: 0.5, fish: 1, startSpeed: 20, boost: 1 };
@@ -130,26 +130,52 @@ export function createSave(): Save {
   };
 }
 
+// 깨졌거나 버전이 달라도 알아볼 수 있는 필드는 살린다. 저장을 통째로 버리면 섬·기록이 복구 불가로 사라지기 때문.
 export function loadSave(raw: string | null): Save {
-  if (!raw) return createSave();
+  const base = createSave();
+  if (!raw) return base;
+  let s: Partial<Save>;
   try {
-    const s = JSON.parse(raw) as Save;
-    if (!Array.isArray(s.cells) || s.cells.length !== GRID_W * GRID_H) return createSave();
-    if (s.version === 1) {
-      // v1 → v2: 업그레이드 필드 추가
-      s.version = 2;
-      s.upgrades = { engine: 0, handling: 0, net: 0 };
-    }
-    if (s.version === 2) {
-      // v2 → v3: 베스트 주행 기록 추가
-      s.version = 3;
-      s.bestRun = null;
-    }
-    if (s.version !== SAVE_VERSION) return createSave();
-    return s;
+    s = JSON.parse(raw) as Partial<Save>;
   } catch {
-    return createSave();
+    return base;
   }
+  if (!s || typeof s !== "object") return base;
+  if (s.version === 1) {
+    // v1 → v2: 업그레이드 필드 추가
+    s.upgrades = { engine: 0, handling: 0, net: 0 };
+  }
+  if (s.version === 1 || s.version === 2) {
+    // v2 → v3: 베스트 주행 기록 추가
+    s.bestRun = null;
+  }
+  const num = (v: unknown, d: number) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : d);
+  const upgrades = { ...base.upgrades };
+  for (const id of Object.keys(upgrades) as UpgradeId[]) {
+    const lv = (s.upgrades as Record<string, unknown> | undefined)?.[id];
+    if (Number.isInteger(lv) && (lv as number) >= 0) upgrades[id] = Math.min(lv as number, UPGRADES[id].costs.length);
+  }
+  const cells =
+    Array.isArray(s.cells) && s.cells.length === GRID_W * GRID_H
+      ? s.cells.map((c) => ({
+          terrain: c?.terrain === "sand" ? ("sand" as const) : ("water" as const),
+          item: c?.item && c.item in CATALOG && c.terrain === "sand" === (CATALOG[c.item].on === "sand") ? c.item : null,
+        }))
+      : base.cells;
+  const run = s.bestRun;
+  return {
+    version: SAVE_VERSION,
+    money: Math.round(num(s.money, base.money)),
+    upgrades,
+    cells,
+    races: Math.round(num(s.races, 0)),
+    bestRank: Number.isInteger(s.bestRank) && (s.bestRank as number) >= 1 ? (s.bestRank as number) : null,
+    fishCaught: Math.round(num(s.fishCaught, 0)),
+    bestRun:
+      run && typeof run.time === "number" && run.time > 0 && Array.isArray(run.points) && Array.isArray(run.splits) && typeof run.dt === "number" && run.dt > 0
+        ? run
+        : null,
+  };
 }
 
 function neighbors(i: number) {

@@ -3,7 +3,7 @@
   "short_name": "요트 레이싱",
   "description": "제트스키 레이스로 돈을 벌어 나만의 요트 섬을 짓는 게임",
   "start_url": "/boat3d",
-  "scope": "/boat",
+  "scope": "/",
   "display": "fullscreen",
   "orientation": "landscape",
   "background_color": "#0369a1",

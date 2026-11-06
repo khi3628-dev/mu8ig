@@ -21,10 +21,11 @@ export default function MetaPanel({
   meta: MetaSave;
   money: number;
   platform: Platform | null;
-  onMeta: (m: MetaSave) => void;
+  onMeta: (m: MetaSave | ((prev: MetaSave) => MetaSave)) => void; // React setState 그대로 받는다
   onMoney: (delta: number) => void;
 }) {
   const [tab, setTab] = useState<Tab>("missions");
+  const [buying, setBuying] = useState(false);
   const [note, setNote] = useState("");
   const ready = meta.missions.filter((m) => !m.claimed && m.progress >= missionDef(m.kind).target).length;
 
@@ -56,13 +57,21 @@ export default function MetaPanel({
   };
 
   const buySupporter = async () => {
-    if (!platform) return;
-    const ok = await platform.purchase("supporter");
-    if (!ok) return;
-    const next = structuredClone(meta);
-    grantSupporter(next);
-    onMeta(next);
-    setNote("서포터 팩 적용 · 감사합니다!");
+    if (!platform || buying) return;
+    setBuying(true);
+    try {
+      const ok = await platform.purchase("supporter");
+      if (!ok) return;
+      // 결제를 기다리는 동안 바뀐 미션·스킨을 잃지 않게 최신 상태에서 갱신한다
+      onMeta((prev) => {
+        const next = structuredClone(prev);
+        grantSupporter(next);
+        return next;
+      });
+      setNote("서포터 팩 적용 · 감사합니다!");
+    } finally {
+      setBuying(false);
+    }
   };
 
   const setVol = (key: "music" | "sfx", v: number) => {
@@ -128,7 +137,7 @@ export default function MetaPanel({
             return (
               <button
                 key={s.id}
-                onClick={() => (s.supporter && !usable ? setTab("settings") : pick(s.id))}
+                onClick={() => (s.supporter && !usable ? (platform?.purchaseAvailable ? setTab("settings") : setNote("서포터 팩 전용 스킨")) : pick(s.id))}
                 className={`rounded-lg p-2 text-left text-xs transition hover:bg-white/15 ${equipped ? "bg-white/20 ring-2 ring-amber-300" : "bg-white/5"}`}
               >
                 <div className="mb-1.5 flex h-6 overflow-hidden rounded" aria-hidden>
@@ -164,20 +173,24 @@ export default function MetaPanel({
               />
             </label>
           ))}
+          {(meta.supporter || platform?.purchaseAvailable) && (
           <div className="rounded-lg bg-gradient-to-br from-amber-300/25 to-white/5 p-2.5">
             <div className="text-xs font-black tracking-[0.2em] text-amber-200">SUPPORTER PACK</div>
             <div className="mt-1 text-xs text-white/80">전용 스킨 2종(플래티넘·로열 퍼플) + 레이스 사이 광고 제거</div>
             {meta.supporter ? (
               <div className="mt-2 text-xs font-bold text-amber-300">적용됨 · 응원해 주셔서 감사합니다</div>
-            ) : platform?.purchaseAvailable ? (
-              <button onClick={buySupporter} className="mt-2 w-full rounded bg-amber-300 py-1.5 text-xs font-black text-slate-950">
-                서포터 팩 구매
-              </button>
             ) : (
-              <div className="mt-2 text-xs text-white/50">이 플랫폼에서는 아직 구매할 수 없어요</div>
+              <button
+                onClick={buySupporter}
+                disabled={buying}
+                className="mt-2 w-full rounded bg-amber-300 py-1.5 text-xs font-black text-slate-950 disabled:opacity-50"
+              >
+                {buying ? "결제 중…" : "서포터 팩 구매"}
+              </button>
             )}
           </div>
-          <a href="/boat/privacy" className="block text-[11px] text-sky-200 underline">개인정보처리방침</a>
+          )}
+          <a href="/boat/privacy" target="_blank" rel="noopener" className="block text-[11px] text-sky-200 underline">개인정보처리방침</a>
         </div>
       )}
 
@@ -201,8 +214,8 @@ export function DailyModal({
   const { day, amount } = nextDailyReward(meta, today);
   const [busy, setBusy] = useState(false);
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-label="매일 접속 보상">
-      <div className="w-full max-w-sm rounded-md bg-slate-950 p-5 text-center text-white shadow-2xl ring-1 ring-white/10">
+    <div className="absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-slate-950/70 p-4" role="dialog" aria-label="매일 접속 보상">
+      <div className="my-auto w-full max-w-sm rounded-md bg-slate-950 p-5 text-center text-white shadow-2xl ring-1 ring-white/10">
         <div className="text-[11px] font-black tracking-[0.3em] text-amber-300">DAILY BONUS · DAY {day}/7</div>
         <div className="mt-3 flex justify-center gap-1" aria-hidden>
           {Array.from({ length: 7 }, (_, i) => (

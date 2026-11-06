@@ -26,7 +26,17 @@ type Screen =
 
 function readSave(): Save {
   try {
-    return loadSave(localStorage.getItem(SAVE_KEY));
+    const raw = localStorage.getItem(SAVE_KEY);
+    const save = loadSave(raw);
+    // 저장을 못 읽어 새로 시작할 때는 원문을 백업해 둔다 (버그 제보로 복구할 수 있게)
+    if (raw && save.races === 0 && save.money === 500) {
+      try {
+        localStorage.setItem(SAVE_KEY + "-bak", raw);
+      } catch {
+        // 백업 실패는 무시
+      }
+    }
+    return save;
   } catch {
     return loadSave(null);
   }
@@ -143,21 +153,32 @@ export default function BoatApp({
   }, []);
 
   // 결과 화면 → 파라다이스. 쉬는 시점이라 이때만 전면 광고를 띄운다 (서포터·처음 몇 판 제외)
+  const leavingRef = useRef(false); // 광고 대기 중 연타 방지
   const leaveResult = async () => {
-    if (platform && interstitialDue(meta)) {
-      const next = structuredClone(meta);
-      markInterstitial(next);
-      setMeta(next);
-      await platform.interstitial();
+    if (leavingRef.current) return;
+    leavingRef.current = true;
+    try {
+      if (platform && interstitialDue(metaRef.current)) {
+        setMeta((prev) => {
+          const next = structuredClone(prev);
+          markInterstitial(next);
+          return next;
+        });
+        await platform.interstitial();
+      }
+      goParadise();
+    } finally {
+      leavingRef.current = false;
     }
-    goParadise();
   };
 
   const claimDailyReward = async (bonusAd: boolean) => {
-    const next = structuredClone(meta);
+    // 보상 반영을 광고 대기보다 먼저 끝낸다. 광고가 실패해도 기본 금액은 받는다
+    const next = structuredClone(metaRef.current);
     const amount = claimDaily(next, today);
-    const doubled = bonusAd && platform ? await platform.rewarded() : false;
     setMeta(next);
+    if (amount === 0) return;
+    const doubled = bonusAd && platform ? await platform.rewarded() : false;
     addMoney(doubled ? amount * 2 : amount);
   };
 
@@ -308,8 +329,8 @@ function ResultView({
   const winnerTime = result.standings[0]?.time ?? null;
   const status = result.rank === 1 ? "WINNER" : result.finished ? "FINISHED" : "TIME OVER · 상금 50%";
   return (
-    <div className="flex h-full items-center justify-center bg-slate-950/50 p-4">
-      <div className="w-full max-w-md overflow-hidden rounded-md bg-slate-950/95 pb-5 text-white shadow-2xl ring-1 ring-white/10">
+    <div className="flex h-full items-start justify-center overflow-y-auto bg-slate-950/50 p-4">
+      <div className="my-auto w-full max-w-md overflow-hidden rounded-md bg-slate-950/95 pb-5 text-white shadow-2xl ring-1 ring-white/10">
         <div className="relative h-44 w-full bg-cover bg-top" style={artBg(result.rank <= 3 ? ART.podium : ART.ski)}>
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-transparent" />
           <div className="absolute bottom-3 left-5 flex items-end gap-3">

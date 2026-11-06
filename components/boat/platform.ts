@@ -161,7 +161,8 @@ function crazygames(): Platform {
 }
 
 export function pickPlatform(search: string, env: string | undefined, isDev: boolean): PlatformName {
-  const q = new URLSearchParams(search).get("platform");
+  let q = new URLSearchParams(search).get("platform");
+  if (q === "dev" && !isDev) q = null; // 배포본에서 가짜 광고·가짜 결제로 보상을 얻지 못하게
   const want = q ?? env ?? (isDev ? "dev" : "none");
   return want === "dev" || want === "poki" || want === "crazygames" ? want : "none";
 }

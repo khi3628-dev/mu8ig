@@ -31,19 +31,19 @@ export const SKINS: Skin[] = [
 export const skinById = (id: string) => SKINS.find((s) => s.id === id) ?? SKINS[0];
 
 // ── 매일 접속 보상 (7일 주기, 하루라도 빠지면 1일차부터) ──
-export const DAILY_REWARDS = [200, 300, 400, 500, 700, 900, 1500];
+export const DAILY_REWARDS = [300, 450, 600, 800, 1100, 1500, 2500];
 
 // ── 일일 미션 ─────────────────────────────────────────
 export type MissionKind = "win" | "podium" | "fish" | "marlin" | "races" | "record";
 export interface MissionDef { kind: MissionKind; target: number; reward: number; text: string }
 
 export const MISSION_POOL: MissionDef[] = [
-  { kind: "races", target: 3, reward: 300, text: "레이스 3번 완주" },
-  { kind: "fish", target: 6, reward: 400, text: "물고기 6마리 낚기" },
-  { kind: "podium", target: 2, reward: 500, text: "3위 안에 2번 들기" },
-  { kind: "win", target: 1, reward: 700, text: "1위 하기" },
-  { kind: "record", target: 1, reward: 600, text: "베스트 기록 갈아치우기" },
-  { kind: "marlin", target: 1, reward: 900, text: "황금 청새치 낚기" },
+  { kind: "races", target: 3, reward: 500, text: "레이스 3번 완주" },
+  { kind: "fish", target: 6, reward: 600, text: "물고기 6마리 낚기" },
+  { kind: "podium", target: 2, reward: 800, text: "3위 안에 2번 들기" },
+  { kind: "win", target: 1, reward: 1000, text: "1위 하기" },
+  { kind: "record", target: 1, reward: 900, text: "베스트 기록 갈아치우기" },
+  { kind: "marlin", target: 1, reward: 1200, text: "황금 청새치 낚기" },
 ];
 export const MISSIONS_PER_DAY = 3;
 const MARLIN = 3; // race.ts FISH의 황금 청새치 인덱스
@@ -165,7 +165,8 @@ export function equipSkin(meta: MetaSave, id: string): string | null {
 
 // ── 매일 접속 보상 ───────────────────────────────────
 export function dailyAvailable(meta: MetaSave, today: string) {
-  return meta.dailyLast !== today;
+  // 문자열 비교(YYYY-MM-DD). 시계를 되돌리거나 서쪽 시간대로 옮겨도 같은 보상을 두 번 주지 않는다
+  return meta.dailyLast === null || meta.dailyLast < today;
 }
 
 // 오늘 받을 보상 (받기 전에 보여 주는 용도)

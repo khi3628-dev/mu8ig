@@ -162,8 +162,10 @@ export default function RaceView3D({ stats, perks, ghost, skin, sfx, onFinish }:
   useEffect(() => {
     const canvas = canvasRef.current!;
     const mini = miniRef.current!.getContext("2d")!;
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // 터치 기기는 대체로 GPU가 약하다: 안티알리아스를 끄고 해상도·물 격자를 낮춘다
+    const coarse = window.matchMedia("(pointer: coarse)").matches;
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: !coarse });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, coarse ? 1.5 : 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(HORIZON, 0.0008);
@@ -175,7 +177,7 @@ export default function RaceView3D({ stats, perks, ghost, skin, sfx, onFinish }:
     scene.add(sky);
     const water = createWater(
       { amp: 0.35, freq: 1, ripple: 1, rippleFreq: 1, foam: 0.28, spark: 1, deep: 0x0a4f7d, shallow: 0x1fb5c9, fogNear: 300, fogFar: 1300 },
-      2200, 240,
+      2200, coarse ? 120 : 240,
     );
     scene.add(water);
     scene.add(new THREE.HemisphereLight(0xcfe9ff, 0x2a6a8a, 1.4));
@@ -649,11 +651,11 @@ export default function RaceView3D({ stats, perks, ghost, skin, sfx, onFinish }:
   return (
     <div className="relative h-full w-full select-none text-white">
       <canvas ref={canvasRef} className="h-full w-full" />
-      <canvas ref={miniRef} width={160} height={104} className="pointer-events-none absolute right-4 top-4 rounded-md bg-black/55" />
+      <canvas ref={miniRef} width={160} height={104} className="pointer-events-none absolute right-4 top-4 origin-top-right rounded-md bg-black/55 pointer-coarse:scale-75" />
       <button
         onClick={toggleMute}
         aria-label={muted ? "소리 켜기" : "소리 끄기"}
-        className="absolute right-4 top-32 -skew-x-12 bg-black/55 px-3 py-1 text-[11px] font-bold tracking-[0.2em] hover:bg-black/70"
+        className="absolute right-4 top-32 -skew-x-12 bg-black/55 px-3 py-1 text-[11px] font-bold tracking-[0.2em] hover:bg-black/70 pointer-coarse:left-4 pointer-coarse:right-auto pointer-coarse:top-auto pointer-coarse:bottom-48"
       >
         <span className="inline-block skew-x-12">{muted ? "SOUND OFF" : "SOUND ON"}</span>
       </button>
@@ -685,7 +687,7 @@ export default function RaceView3D({ stats, perks, ghost, skin, sfx, onFinish }:
       </div>
 
       {/* 속도계 */}
-      <div className="pointer-events-none absolute bottom-5 right-5 pointer-coarse:bottom-48">
+      <div className="pointer-events-none absolute bottom-5 right-5 origin-bottom-right pointer-coarse:bottom-56 pointer-coarse:right-2 pointer-coarse:scale-[0.62]">
         <Speedo kmh={kmh} gear={hud.gear} boost={hud.boost} />
       </div>
 
@@ -718,7 +720,7 @@ export default function RaceView3D({ stats, perks, ghost, skin, sfx, onFinish }:
           <div className="flex flex-col gap-3">
             <TouchButton label={hud.firstPerson ? "3P" : "1P"} onPointerDown={() => { touchRef.current.view = true; }} />
             {!hud.firstPerson && <TouchButton label="D/R" onPointerDown={() => { touchRef.current.gear = true; }} />}
-            {!hud.firstPerson && <TouchButton label="CATCH" onPointerDown={() => { touchRef.current.fish = true; }} />}
+            {!hud.firstPerson && <TouchButton label="FISH" onPointerDown={() => { touchRef.current.fish = true; }} />}
           </div>
           <div className="flex flex-col gap-3">
             <TouchButton label="▲" {...hold("gas")} />

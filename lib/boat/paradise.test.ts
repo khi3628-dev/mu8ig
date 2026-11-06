@@ -114,7 +114,7 @@ describe("yacht paradise", () => {
     place(s, idx(3, 4), "lighthouse");
     place(s, idx(2, 4), "dock");
     place(s, idx(1, 4), "yacht");
-    expect(racePerks(s)).toEqual({ prize: 0.13, fish: 0.17, startSpeed: 5, boost: 0.3 });
+    expect(racePerks(s)).toEqual({ prize: 0.25, fish: 0.29, startSpeed: 8, boost: 0.45 });
   });
 
   it("같은 시설을 잔뜩 지어도 상한에서 멈춘다", () => {
@@ -130,7 +130,7 @@ describe("yacht paradise", () => {
 
   it("효과 설명 문구", () => {
     expect(perkLabel({ prize: 0.1 })).toBe("상금 +10%");
-    expect(perkLabel({ startSpeed: 12 })).toBe("출발 대시 +43km/h");
+    expect(perkLabel({ startSpeed: 18 })).toBe("출발 대시 +65km/h");
     expect(perkLabel({})).toBe("");
   });
 

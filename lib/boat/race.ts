@@ -30,8 +30,8 @@ const BUMP_BASE = 2.5;
 const BUMP_GAIN = 0.5;
 const BUMP_MAX = 7;
 const BUMP_DECAY = 4; // 1/초
-const PACK_GAIN = 0.06; // AI 접전 보정: 체크포인트 하나 차이당 속도 ±6%
-const PACK_MAX = 0.12; // 보정 상한 ±12%
+const PACK_GAIN = 0.08; // AI 접전 보정: 체크포인트 하나 차이당 속도 ±8%
+const PACK_MAX = 0.22; // 보정 상한 ±22% (잘하는 사람에게도 긴장을 주고, 서툰 사람은 꼴찌로 고정되지 않게)
 
 export interface Point { x: number; y: number }
 
@@ -133,12 +133,14 @@ export interface RaceResult {
   standings: { name: string; isPlayer: boolean; time: number | null }[];
 }
 
+// 선두 AI는 업그레이드 없는 플레이어(30)보다 약간 빠르다. 뒤처진 쪽을 당겨 주는 접전 보정(PACK_*)이
+// 서툰 사람을 꼴찌에 고정하지 않게 막아 주고, 잘하는 사람에게는 추월 경쟁을 만든다.
 const AI_PROFILES = [
-  { name: "마르코", color: "#ef4444", topSpeed: 27 },
-  { name: "소피아", color: "#f97316", topSpeed: 26 },
-  { name: "레오", color: "#22c55e", topSpeed: 25 },
-  { name: "아이라", color: "#a855f7", topSpeed: 24 },
-  { name: "카이", color: "#0ea5e9", topSpeed: 23 },
+  { name: "마르코", color: "#ef4444", topSpeed: 30.5 },
+  { name: "소피아", color: "#f97316", topSpeed: 29.3 },
+  { name: "레오", color: "#22c55e", topSpeed: 28.2 },
+  { name: "아이라", color: "#a855f7", topSpeed: 27.1 },
+  { name: "카이", color: "#0ea5e9", topSpeed: 26 },
 ];
 
 export function createCourse(): Point[] {
