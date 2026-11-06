@@ -6,6 +6,7 @@ import {
   type MetaSave, type MissionKind,
 } from "@/lib/boat/meta";
 import type { Platform } from "./platform";
+import { errorText, getLocale, missionText, skinName, t } from "@/lib/boat/i18n";
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
 type Tab = "missions" | "shop" | "settings";
@@ -24,6 +25,7 @@ export default function MetaPanel({
   onMeta: (m: MetaSave | ((prev: MetaSave) => MetaSave)) => void; // React setState 그대로 받는다
   onMoney: (delta: number) => void;
 }) {
+  const L = getLocale();
   const [tab, setTab] = useState<Tab>("missions");
   const [buying, setBuying] = useState(false);
   const [note, setNote] = useState("");
@@ -35,7 +37,7 @@ export default function MetaPanel({
     if (!amount) return;
     onMeta(next);
     onMoney(amount);
-    setNote(`미션 보상 +${amount.toLocaleString()} CR`);
+    setNote(`${t(L, "missionReward")} +${amount.toLocaleString()} CR`);
   };
 
   const pick = (id: string) => {
@@ -48,12 +50,12 @@ export default function MetaPanel({
     }
     const r = buySkin(next, id, money);
     if ("error" in r) {
-      setNote(r.error);
+      setNote(errorText(L, r.error));
       return;
     }
     onMeta(next);
     onMoney(r.money - money);
-    setNote("스킨을 샀어요. 다음 레이스부터 적용");
+    setNote(t(L, "boughtSkin"));
   };
 
   const buySupporter = async () => {
@@ -104,20 +106,20 @@ export default function MetaPanel({
 
       {tab === "missions" && (
         <div className="space-y-1.5">
-          <div className="px-1 text-[11px] text-sky-200">오늘의 미션 · 자정에 새로 바뀜</div>
+          <div className="px-1 text-[11px] text-sky-200">{t(L, "todayMissions")}</div>
           {meta.missions.map((m) => {
             const def = missionDef(m.kind);
             const done = m.progress >= def.target;
             return (
               <div key={m.kind} className="rounded-lg bg-white/5 px-2.5 py-2 text-sm">
                 <div className="flex items-center justify-between gap-2">
-                  <span className={m.claimed ? "text-white/40 line-through" : ""}>{def.text}</span>
+                  <span className={m.claimed ? "text-white/40 line-through" : ""}>{missionText(L, m.kind, def.text)}</span>
                   {done && !m.claimed ? (
                     <button onClick={() => claim(m.kind)} className="shrink-0 rounded bg-amber-300 px-2 py-0.5 text-xs font-black text-slate-950">
                       +{def.reward}
                     </button>
                   ) : (
-                    <span className="shrink-0 text-xs text-amber-200/80">{m.claimed ? "완료" : `${def.reward} CR`}</span>
+                    <span className="shrink-0 text-xs text-amber-200/80">{m.claimed ? t(L, "done") : `${def.reward} CR`}</span>
                   )}
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded bg-white/10" aria-label={`${m.progress}/${def.target}`}>
@@ -137,7 +139,7 @@ export default function MetaPanel({
             return (
               <button
                 key={s.id}
-                onClick={() => (s.supporter && !usable ? (platform?.purchaseAvailable ? setTab("settings") : setNote("서포터 팩 전용 스킨")) : pick(s.id))}
+                onClick={() => (s.supporter && !usable ? (platform?.purchaseAvailable ? setTab("settings") : setNote(errorText(L, "서포터 팩 전용 스킨"))) : pick(s.id))}
                 className={`rounded-lg p-2 text-left text-xs transition hover:bg-white/15 ${equipped ? "bg-white/20 ring-2 ring-amber-300" : "bg-white/5"}`}
               >
                 <div className="mb-1.5 flex h-6 overflow-hidden rounded" aria-hidden>
@@ -145,9 +147,9 @@ export default function MetaPanel({
                   <span className="flex-1" style={{ background: hex(s.stripe) }} />
                   <span className="flex-[2]" style={{ background: hex(s.suit) }} />
                 </div>
-                <div className="font-semibold">{s.name}</div>
+                <div className="font-semibold">{skinName(L, s.id, s.name)}</div>
                 <div className={equipped ? "text-amber-300" : "text-white/60"}>
-                  {equipped ? "장착 중" : usable ? "장착" : s.supporter ? "서포터 전용" : `${s.price.toLocaleString()} CR`}
+                  {equipped ? t(L, "equipped") : usable ? t(L, "equip") : s.supporter ? t(L, "supporterOnly") : `${s.price.toLocaleString()} CR`}
                 </div>
               </button>
             );
@@ -160,7 +162,7 @@ export default function MetaPanel({
           {(["music", "sfx"] as const).map((k) => (
             <label key={k} className="block">
               <span className="flex justify-between text-xs text-sky-200">
-                <span>{k === "music" ? "배경음악" : "효과음"}</span>
+                <span>{k === "music" ? t(L, "music") : t(L, "sfx")}</span>
                 <span>{Math.round(meta.settings[k] * 100)}%</span>
               </span>
               <input
@@ -176,21 +178,21 @@ export default function MetaPanel({
           {(meta.supporter || platform?.purchaseAvailable) && (
           <div className="rounded-lg bg-gradient-to-br from-amber-300/25 to-white/5 p-2.5">
             <div className="text-xs font-black tracking-[0.2em] text-amber-200">SUPPORTER PACK</div>
-            <div className="mt-1 text-xs text-white/80">전용 스킨 2종(플래티넘·로열 퍼플) + 레이스 사이 광고 제거</div>
+            <div className="mt-1 text-xs text-white/80">{t(L, "supporterDesc")}</div>
             {meta.supporter ? (
-              <div className="mt-2 text-xs font-bold text-amber-300">적용됨 · 응원해 주셔서 감사합니다</div>
+              <div className="mt-2 text-xs font-bold text-amber-300">{t(L, "supporterThanks")}</div>
             ) : (
               <button
                 onClick={buySupporter}
                 disabled={buying}
                 className="mt-2 w-full rounded bg-amber-300 py-1.5 text-xs font-black text-slate-950 disabled:opacity-50"
               >
-                {buying ? "결제 중…" : "서포터 팩 구매"}
+                {buying ? t(L, "paying") : t(L, "buySupporter")}
               </button>
             )}
           </div>
           )}
-          <a href="/boat/privacy" target="_blank" rel="noopener" className="block text-[11px] text-sky-200 underline">개인정보처리방침</a>
+          <a href="/boat/privacy" target="_blank" rel="noopener" className="block text-[11px] text-sky-200 underline">{t(L, "privacy")}</a>
         </div>
       )}
 
@@ -211,10 +213,11 @@ export function DailyModal({
   platform: Platform | null;
   onClaim: (bonusAd: boolean) => void;
 }) {
+  const L = getLocale();
   const { day, amount } = nextDailyReward(meta, today);
   const [busy, setBusy] = useState(false);
   return (
-    <div className="absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-slate-950/70 p-4" role="dialog" aria-label="매일 접속 보상">
+    <div className="absolute inset-0 z-30 flex items-start justify-center overflow-y-auto bg-slate-950/70 p-4" role="dialog" aria-label={t(L, "dailyAria")}>
       <div className="my-auto w-full max-w-sm rounded-md bg-slate-950 p-5 text-center text-white shadow-2xl ring-1 ring-white/10">
         <div className="text-[11px] font-black tracking-[0.3em] text-amber-300">DAILY BONUS · DAY {day}/7</div>
         <div className="mt-3 flex justify-center gap-1" aria-hidden>
@@ -223,7 +226,7 @@ export function DailyModal({
           ))}
         </div>
         <div className="mt-4 text-4xl font-black italic text-amber-300">+{amount.toLocaleString()} CR</div>
-        <div className="mt-1 text-xs text-white/60">매일 들어오면 보상이 커져요. 7일째 1,500 CR</div>
+        <div className="mt-1 text-xs text-white/60">{t(L, "dailyGrow")}</div>
         <div className="mt-5 grid gap-2">
           {platform?.rewardedAvailable && (
             <button
@@ -234,7 +237,7 @@ export function DailyModal({
               }}
               className="-skew-x-12 bg-amber-300 py-2.5 font-black italic text-slate-950 disabled:opacity-50"
             >
-              <span className="inline-block skew-x-12">광고 보고 2배 받기</span>
+              <span className="inline-block skew-x-12">{t(L, "watchAdX2")}</span>
             </button>
           )}
           <button
@@ -245,7 +248,7 @@ export function DailyModal({
             }}
             className="-skew-x-12 bg-white py-2.5 font-black italic text-slate-950 disabled:opacity-50"
           >
-            <span className="inline-block skew-x-12">받기</span>
+            <span className="inline-block skew-x-12">{t(L, "claim")}</span>
           </button>
         </div>
       </div>

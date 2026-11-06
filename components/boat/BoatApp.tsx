@@ -5,6 +5,7 @@ import { FISH, type PlayerStats, type RacePerks, type RaceResult } from "@/lib/b
 import { formatTime, type GhostRun } from "@/lib/boat/ghost";
 import { applyBestRun, applyRaceReward, loadSave, playerStats, racePerks, type Save } from "@/lib/boat/paradise";
 import { ART, artBg } from "@/lib/boat/art";
+import { fishName, getLocale, missionText, racerName, t } from "@/lib/boat/i18n";
 import ParadiseView, { type BoardProps } from "./ParadiseView";
 import RaceView from "./RaceView";
 import { music } from "./music";
@@ -224,27 +225,26 @@ export default function BoatApp({
 }
 
 function TitleView({ save, onStart }: { save: Save; onStart: () => void }) {
+  const L = getLocale();
   return (
     <div className="relative flex h-full flex-col justify-end bg-cover bg-center" style={artBg(ART.title)}>
       <div className="absolute inset-0 bg-gradient-to-t from-sky-950/90 via-sky-950/30 to-transparent" />
       <div className="relative mx-auto w-full max-w-3xl space-y-4 p-6 pb-10 text-center text-white">
         <div className="text-xs uppercase tracking-[0.3em] text-amber-200">Jet Ski Racing · Yacht Paradise</div>
-        <h1 className="text-4xl font-black drop-shadow-lg sm:text-6xl">요트 파라다이스 레이싱</h1>
-        <p className="text-sm text-sky-100 sm:text-base">
-          3분 레이스로 순위를 가리고, 낚시와 상금으로 나만의 요트 섬을 만든다.
-        </p>
+        <h1 className="text-4xl font-black drop-shadow-lg sm:text-6xl">{t(L, "gameTitle")}</h1>
+        <p className="text-sm text-sky-100 sm:text-base">{t(L, "tagline")}</p>
         <button
           onClick={onStart}
           className="-skew-x-12 bg-white px-12 py-3 text-lg font-black italic tracking-wide text-slate-950 shadow-xl transition hover:bg-amber-200"
         >
-          <span className="inline-block skew-x-12">START · 게임 시작</span>
+          <span className="inline-block skew-x-12">{t(L, "start")}</span>
         </button>
         {save.races > 0 && (
           <div className="text-xs text-sky-200">
             CREDITS {save.money.toLocaleString()} · RACES {save.races} · BEST P{save.bestRank}
           </div>
         )}
-        <a href="/boat/privacy" className="block text-[11px] text-sky-300/80 underline">개인정보처리방침</a>
+        <a href="/boat/privacy" className="block text-[11px] text-sky-300/80 underline">{t(L, "privacy")}</a>
       </div>
     </div>
   );
@@ -254,7 +254,7 @@ function TitleView({ save, onStart }: { save: Save; onStart: () => void }) {
 function RecordLine({ result }: { result: RaceResult }) {
   if (!result.run) return null;
   const best = result.bestBefore;
-  if (best === null) return <Tag tone="bg-sky-500">FIRST RECORD · 다음 레이스부터 이 기록과 함께 달린다</Tag>;
+  if (best === null) return <Tag tone="bg-sky-500">{t(getLocale(), "firstRecord")}</Tag>;
   if (result.run.time < best) {
     return <Tag tone="bg-emerald-500">NEW RECORD · {formatTime(best)} → {formatTime(result.run.time)}</Tag>;
   }
@@ -278,6 +278,7 @@ const cr = (n: number) => `${n.toLocaleString()} CR`;
 
 // 첫 레이스에만 잠깐 띄우는 조작 안내
 function Tutorial() {
+  const L = getLocale();
   const [show, setShow] = useState(true);
   useEffect(() => {
     const t = setTimeout(() => setShow(false), 9000);
@@ -287,12 +288,12 @@ function Tutorial() {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-[38%] z-20 flex justify-center px-4">
       <div className="max-w-md rounded-md bg-slate-950/85 px-5 py-4 text-center text-sm leading-6 text-white shadow-2xl ring-1 ring-white/10">
-        <div className="mb-1 text-[11px] font-black tracking-[0.3em] text-amber-300">HOW TO RACE</div>
-        <b>W/↑</b> 가속 · <b>S/↓</b> 감속 · <b>A D/← →</b> 조향
+        <div className="mb-1 text-[11px] font-black tracking-[0.3em] text-amber-300">{t(L, "howTo")}</div>
+        <b>W/↑</b> {t(L, "tut1")} <b>S/↓</b> {t(L, "tut2")} <b>A D/← →</b> {t(L, "tut3")}
         <br />
-        노란 게이트를 순서대로 지나 3바퀴. 뛰어오르는 물고기 근처에서 <b>SPACE</b>로 낚시
+        {t(L, "tutLine2")}
         <br />
-        <span className="text-white/60">모바일은 화면 버튼 · 3D는 V키로 1인칭</span>
+        <span className="text-white/60">{t(L, "tutLine3")}</span>
       </div>
     </div>
   );
@@ -311,6 +312,7 @@ function ResultView({
   onDouble: () => void;
   onBack: () => void | Promise<void>;
 }) {
+  const L = getLocale();
   const [doubled, setDoubled] = useState(false);
   const [busy, setBusy] = useState(false);
   const total = result.prize + result.fishCoins;
@@ -327,7 +329,7 @@ function ResultView({
   const counts = new Map<number, number>();
   for (const i of result.caught) counts.set(i, (counts.get(i) ?? 0) + 1);
   const winnerTime = result.standings[0]?.time ?? null;
-  const status = result.rank === 1 ? "WINNER" : result.finished ? "FINISHED" : "TIME OVER · 상금 50%";
+  const status = result.rank === 1 ? "WINNER" : result.finished ? "FINISHED" : t(L, "timeOverHalf");
   return (
     <div className="flex h-full items-start justify-center overflow-y-auto bg-slate-950/50 p-4">
       <div className="my-auto w-full max-w-md overflow-hidden rounded-md bg-slate-950/95 pb-5 text-white shadow-2xl ring-1 ring-white/10">
@@ -356,7 +358,7 @@ function ResultView({
               }`}
             >
               <span className="italic">P{i + 1}</span>
-              <span>{s.isPlayer ? "YOU" : s.name}</span>
+              <span>{s.isPlayer ? "YOU" : racerName(L, s.name)}</span>
               <span className="italic">
                 {s.time === null ? "DNF" : i === 0 || winnerTime === null ? formatTime(s.time) : `+${(s.time - winnerTime).toFixed(1)}`}
               </span>
@@ -374,7 +376,7 @@ function ResultView({
             <span className="text-white/70">
               FISH{result.perks.fish > 0 && <BonusTag value={result.perks.fish} />}
               <span className="ml-2 text-xs text-white/50">
-                {[...counts].map(([i, n]) => `${FISH[i].name} ${n}`).join(" · ") || "-"}
+                {[...counts].map(([i, n]) => `${fishName(L, FISH[i].name, i)} ${n}`).join(" · ") || "-"}
               </span>
             </span>
             <span>{cr(result.fishCoins)}</span>
@@ -383,11 +385,11 @@ function ResultView({
             <span>TOTAL</span>
             <span className="text-amber-300">{cr(doubled ? total * 2 : total)}</span>
           </div>
-          {doubled && <div className="text-right text-xs font-bold text-amber-200">광고 보상 2배 적용</div>}
+          {doubled && <div className="text-right text-xs font-bold text-amber-200">{t(L, "adApplied")}</div>}
         </div>
         {missions.length > 0 && (
           <div className="mx-5 mt-3 rounded bg-amber-300/15 px-3 py-2 text-xs text-amber-100">
-            미션 달성: {missions.map((k) => missionDef(k).text).join(" · ")} — 파라다이스에서 보상 받기
+            {t(L, "missionDone")}: {missions.map((k) => missionText(L, k, missionDef(k).text)).join(" · ")} — {t(L, "claimInParadise")}
           </div>
         )}
         {platform?.rewardedAvailable && total > 0 && !doubled && (
@@ -396,14 +398,14 @@ function ResultView({
             disabled={busy}
             className="mx-5 mt-4 w-[calc(100%-2.5rem)] -skew-x-12 bg-amber-300 py-3 font-black italic tracking-wide text-slate-950 hover:bg-amber-200 disabled:opacity-50"
           >
-            <span className="inline-block skew-x-12">광고 보고 상금 2배 · +{cr(total)}</span>
+            <span className="inline-block skew-x-12">{t(L, "watchAdDouble")} · +{cr(total)}</span>
           </button>
         )}
         <button
           onClick={onBack}
           className="mx-5 mt-4 w-[calc(100%-2.5rem)] -skew-x-12 bg-white py-3 font-black italic tracking-wide text-slate-950 hover:bg-amber-200"
         >
-          <span className="inline-block skew-x-12">CONTINUE · 파라다이스로</span>
+          <span className="inline-block skew-x-12">{t(L, "continueToParadise")}</span>
         </button>
       </div>
     </div>

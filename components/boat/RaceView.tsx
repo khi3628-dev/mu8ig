@@ -10,6 +10,7 @@ import { formatTime, ghostPose } from "@/lib/boat/ghost";
 import CatchBanner from "./CatchBanner";
 import SplitBadge from "./SplitBadge";
 import { music } from "./music";
+import { getLocale, racerName, t, toast } from "@/lib/boat/i18n";
 import { skinById } from "@/lib/boat/meta";
 import type { RaceScreenProps } from "./BoatApp";
 
@@ -52,6 +53,7 @@ export default function RaceView({
   onFinish,
 }: RaceScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const L = getLocale();
   const touchRef = useRef({ gas: false, brake: false, left: false, right: false, fish: false });
   const look = useMemo(() => {
     const k = skinById(skin);
@@ -154,17 +156,16 @@ export default function RaceView({
       <canvas ref={canvasRef} className="h-full w-full" />
 
       <div className="pointer-events-none absolute left-4 top-4 space-y-1 rounded-xl bg-black/45 px-4 py-3 text-white backdrop-blur">
-        <div className="text-3xl font-black tabular-nums">{hud.rank}<span className="text-base font-semibold"> / 6위</span></div>
-        <div className="text-sm">랩 {hud.lap} / {LAPS}</div>
-        <div className={`text-sm tabular-nums ${remaining < 30 ? "text-red-300" : ""}`}>남은 시간 {mm}:{ss}</div>
+        <div className="text-3xl font-black tabular-nums">{hud.rank}<span className="text-base font-semibold"> / 6{L === "ko" ? "위" : ""}</span></div>
+        <div className="text-sm">{t(L, "lap")} {hud.lap} / {LAPS}</div>
+        <div className={`text-sm tabular-nums ${remaining < 30 ? "text-red-300" : ""}`}>{t(L, "remaining")} {mm}:{ss}</div>
         <div className="text-sm tabular-nums">{Math.round(hud.speed * 3.6)} km/h</div>
         <div className="text-sm">FISH +{hud.fishCoins}</div>
         {hud.best !== null && <div className="text-sm text-sky-200">BEST {formatTime(hud.best)}</div>}
       </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-black/45 px-3 py-2 text-xs leading-5 text-white pointer-coarse:hidden">
-        W/↑ 가속 · S/↓ 감속 · A/D 조향<br />
-        Space/F 낚시 (뛰어오른 물고기 근처에서)
+        {L === "ko" ? <>W/↑ 가속 · S/↓ 감속 · A/D 조향<br />Space/F 낚시 (뛰어오른 물고기 근처에서)</> : <>W/↑ gas · S/↓ brake · A/D steer<br />Space/F catch fish (near a jumping fish)</>}
       </div>
 
       <div className="absolute inset-x-0 bottom-0 hidden touch-none justify-between p-4 pointer-coarse:flex">
@@ -195,7 +196,7 @@ export default function RaceView({
       <CatchBanner value={hud.legend} />
       {hud.message && (
         <div className="pointer-events-none absolute left-1/2 top-24 -translate-x-1/2 rounded-full bg-white/90 px-5 py-2 text-lg font-bold text-sky-900 shadow">
-          {hud.message}
+          {toast(L, hud.message)}
         </div>
       )}
     </div>
@@ -219,6 +220,8 @@ function TouchButton({
     </button>
   );
 }
+
+const ghostLabel = getLocale() === "ko" ? "베스트" : "BEST";
 
 function draw(
   ctx: CanvasRenderingContext2D,
@@ -332,7 +335,7 @@ function draw(
   if (s.ghost) {
     const g = ghostPose(s.ghost, Math.max(0, s.time));
     ctx.globalAlpha = 0.4;
-    drawRacer(ctx, { ...s.racers[0], name: "베스트", color: "#7dd3fc", isPlayer: false, heading: g.heading, boost: 0 }, sx(g.x), sy(g.y));
+    drawRacer(ctx, { ...s.racers[0], name: ghostLabel, color: "#7dd3fc", isPlayer: false, heading: g.heading, boost: 0 }, sx(g.x), sy(g.y));
     ctx.globalAlpha = 1;
   }
   for (const r of [...s.racers].reverse()) drawRacer(ctx, r, sx(r.x), sy(r.y), look);
@@ -380,7 +383,7 @@ function drawRacer(ctx: CanvasRenderingContext2D, r: Racer, x: number, y: number
   ctx.fillStyle = "white";
   ctx.font = "bold 11px sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(r.name, x, y - 16);
+  ctx.fillText(r.isPlayer ? r.name : racerName(getLocale(), r.name), x, y - 16);
 }
 
 function drawMinimap(ctx: CanvasRenderingContext2D, s: RaceState) {

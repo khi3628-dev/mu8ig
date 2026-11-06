@@ -16,6 +16,7 @@ import { sfxEvents, sfxSnapshot } from "@/lib/boat3d/sfx";
 import { RaceAudio, readMuted, writeMuted } from "./raceAudio";
 import { music } from "@/components/boat/music";
 import { skinById } from "@/lib/boat/meta";
+import { getLocale, racerName, t, toast } from "@/lib/boat/i18n";
 import { boundaryPoints } from "@/lib/boat3d/track";
 import { HORIZON, SUN_DIR, createEnvironment, createSky, createWater, waveHeight } from "@/lib/boat3d/water";
 
@@ -142,6 +143,7 @@ function mulberry(seed: number) {
 }
 
 export default function RaceView3D({ stats, perks, ghost, skin, sfx, onFinish }: RaceScreenProps) {
+  const L = getLocale();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const miniRef = useRef<HTMLCanvasElement>(null);
   const touchRef = useRef({ gas: false, brake: false, left: false, right: false, fish: false, gear: false, view: false });
@@ -253,7 +255,7 @@ export default function RaceView3D({ stats, perks, ghost, skin, sfx, onFinish }:
       s.group.scale.setScalar(1.5);
       let tag: THREE.Sprite | null = null;
       if (i > 0) {
-        tag = nameTag(r.name);
+        tag = nameTag(racerName(getLocale(), r.name));
         tag.position.set(0, 2.9, 0);
         s.group.add(tag);
       }
@@ -270,7 +272,7 @@ export default function RaceView3D({ stats, perks, ghost, skin, sfx, onFinish }:
         if (o instanceof THREE.Mesh) o.material = ghostMat;
       });
       ghostSki.scale.setScalar(1.5);
-      const tag = nameTag("베스트");
+      const tag = nameTag(getLocale() === "ko" ? "베스트" : "BEST");
       tag.position.set(0, 2.9, 0);
       ghostSki.add(tag);
       scene.add(ghostSki);
@@ -694,11 +696,19 @@ export default function RaceView3D({ stats, perks, ghost, skin, sfx, onFinish }:
       <div className="pointer-events-none absolute bottom-4 left-4 bg-black/50 px-3 py-1.5 text-[11px] leading-5 tracking-wide text-white/85 pointer-coarse:hidden">
         {hud.firstPerson ? (
           <>
-            <Key>W</Key> 가속 <Key>S</Key> 브레이크 <Key>A</Key><Key>D</Key> 회전 · 낚시 자동 <Key>V</Key> 3인칭
+            {L === "ko" ? (
+              <><Key>W</Key> 가속 <Key>S</Key> 브레이크 <Key>A</Key><Key>D</Key> 회전 · 낚시 자동 <Key>V</Key> 3인칭</>
+            ) : (
+              <><Key>W</Key> gas <Key>S</Key> brake <Key>A</Key><Key>D</Key> turn · auto-fishing <Key>V</Key> 3rd person</>
+            )}
           </>
         ) : (
           <>
-            <Key>W</Key> 가속 <Key>S</Key> 감속 <Key>A</Key><Key>D</Key> 조향 <Key>Q</Key> 기어 <Key>SPACE</Key> 낚시 <Key>V</Key> 1인칭 <Key>M</Key> 소리
+            {L === "ko" ? (
+              <><Key>W</Key> 가속 <Key>S</Key> 감속 <Key>A</Key><Key>D</Key> 조향 <Key>Q</Key> 기어 <Key>SPACE</Key> 낚시 <Key>V</Key> 1인칭 <Key>M</Key> 소리</>
+            ) : (
+              <><Key>W</Key> gas <Key>S</Key> brake <Key>A</Key><Key>D</Key> steer <Key>Q</Key> gear <Key>SPACE</Key> fish <Key>V</Key> 1st person <Key>M</Key> sound</>
+            )}
           </>
         )}
       </div>
@@ -706,7 +716,7 @@ export default function RaceView3D({ stats, perks, ghost, skin, sfx, onFinish }:
       {hud.canFish && hud.time >= 0 && !hud.firstPerson && (
         <div className="pointer-events-none absolute bottom-28 left-1/2 -translate-x-1/2 pointer-coarse:bottom-48">
           <Slant className="bg-amber-400 px-5 py-1.5 text-black">
-            <span className="text-lg font-black italic tracking-wide">SPACE · 낚아채기</span>
+            <span className="text-lg font-black italic tracking-wide">{t(L, "catchNow")}</span>
           </Slant>
         </div>
       )}
@@ -754,7 +764,7 @@ export default function RaceView3D({ stats, perks, ghost, skin, sfx, onFinish }:
       {hud.message && (
         <div className="pointer-events-none absolute left-1/2 top-24 -translate-x-1/2">
           <Slant className="bg-black/70 px-6 py-1.5">
-            <span className="text-lg font-black italic tracking-wide">{hud.message}</span>
+            <span className="text-lg font-black italic tracking-wide">{toast(L, hud.message)}</span>
           </Slant>
         </div>
       )}
