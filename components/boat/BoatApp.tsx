@@ -120,11 +120,16 @@ export default function BoatApp({
     setScreen({ kind: "paradise" });
   };
 
-  // 레이스 중에만 "게임 중" (포털 SDK가 이 구간에는 광고를 띄우지 않는다)
+  // 레이스 중에만 "게임 중" (포털 SDK가 이 구간에는 광고를 띄우지 않는다). 탭을 숨기면 중단으로 신고
   useEffect(() => {
     if (screen.kind !== "race" || !platform) return;
     platform.gameplayStart();
-    return () => platform.gameplayStop();
+    const onVisibility = () => (document.hidden ? platform.gameplayStop() : platform.gameplayStart());
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      platform.gameplayStop();
+    };
   }, [screen.kind, platform]);
 
   const addMoney = useCallback((delta: number) => {
