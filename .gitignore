@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 포털 제출용 빌드 산출물 (scripts/build-portal.mjs)
+/dist-portal/

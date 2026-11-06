@@ -4,7 +4,11 @@
 //   개발 중(next dev)엔 dev(가짜 광고), 배포본엔 none(광고·결제 없음 — 버튼이 숨는다).
 // 배포본에서 가짜 광고로 보상을 주는 일이 없도록 dev는 명시하거나 개발 서버일 때만 켠다.
 //
-// SDK 호출 이름은 각 플랫폼 공개 문서 기준이다. 실제 포털 심사 전에 그쪽 테스트 도구로 꼭 확인할 것 (docs/LAUNCH.md).
+// SDK 호출 이름 검증 (2026-11-06, 실제 SDK를 로드해 확인 — 문서 호스트는 이 환경에서 차단):
+//   Poki: init·gameLoadingFinished·gameplayStart/Stop·commercialBreak·rewardedBreak 모두 실존 (poki-sdk.js v2 로드 후 열거).
+//   CrazyGames: sdk v3 스크립트 로드·init()·data 모듈(getItem/setItem) 확인. game/ad 모듈은 init 전 접근이 예외라
+//     requestAd 콜백 이름(adStarted/adFinished/adError)은 포털 QA 도구에서만 확인 가능 — 제출 전 확인 (docs/LAUNCH.md).
+//   포털 밖에서는 CrazyGames init이 끝나지 않을 수 있어 아래 getPlatform이 시간 제한을 건다.
 
 export type PlatformName = "none" | "dev" | "poki" | "crazygames";
 
@@ -139,9 +143,13 @@ function crazygames(): Platform {
     withAudioPaused(
       () =>
         new Promise<boolean>((resolve) => {
-          const s = sdk();
-          if (!s) return resolve(false);
-          s.ad.requestAd(type, { adFinished: () => resolve(true), adError: () => resolve(false) });
+          try {
+            const s = sdk();
+            if (!s) return resolve(false);
+            s.ad.requestAd(type, { adFinished: () => resolve(true), adError: () => resolve(false) });
+          } catch {
+            resolve(false); // init 전에는 ad 모듈 접근 자체가 던진다 (라이브 확인)
+          }
         }),
     );
   return {
@@ -175,7 +183,8 @@ export async function getPlatform(): Promise<Platform> {
   const name = pickPlatform(window.location.search, process.env.NEXT_PUBLIC_GAME_PLATFORM, process.env.NODE_ENV === "development");
   const p = name === "dev" ? dev : name === "poki" ? poki() : name === "crazygames" ? crazygames() : none;
   try {
-    await p.init();
+    // 포털 밖(자체 배포·로컬)에서는 init이 영영 끝나지 않을 수 있다 → 8초 안에 못 끝나면 광고 없는 모드
+    await Promise.race([p.init(), new Promise((_, no) => setTimeout(() => no(new Error("init timeout")), 8000))]);
     current = p;
   } catch {
     current = none;

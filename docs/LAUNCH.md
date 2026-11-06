@@ -23,8 +23,8 @@
 ## 3. 운영자 계정이 필요한 일 (체크리스트)
 
 - [ ] 포털 개발자 계정 만들기 (CrazyGames Developer Portal / Poki 신청)
-- [ ] 포털 SDK 테스트 도구로 광고 호출 확인 — `platform.ts`의 SDK 함수 이름은 공식 문서 기준으로 작성했지만 실제 포털 환경에서 확인 필요
-- [ ] 정적 빌드로 내보내기 (포털 업로드용) — 아래 5절
+- [~] 포털 SDK 검증 — 실제 SDK를 로드해 확인함(2026-11-06): Poki는 쓰는 함수 전부 실존, CrazyGames는 스크립트·init·data 모듈 확인. **남은 것**: CrazyGames `requestAd` 콜백 이름은 init 후에만 보이므로 포털 QA 도구에서 광고 1회 재생 확인
+- [x] 정적 빌드 — `node scripts/build-portal.mjs crazygames|poki|none` 가 `dist-portal/yacht-paradise-<플랫폼>.zip`(index.html 한 파일, 약 2.8MB)을 만든다. 포털 개발자 포털에 그대로 업로드
 - [ ] 썸네일·아이콘을 포털 규격으로 만들기 (`docs/boat-image-prompts.md`의 이미지 활용)
 - [ ] 개인정보처리방침에 운영자 이름·연락처·시행일 채우기 (`app/boat/privacy/page.tsx`)
 - [x] 영어 UI — 브라우저 언어가 ko가 아니면 영어로 표시 (`lib/boat/i18n.ts`). 남은 것: 개인정보처리방침 영어판
@@ -40,9 +40,7 @@
 
 ## 5. 정적 빌드
 
-현재 게임은 다른 앱과 같은 Next.js 저장소(mu8ig) 안에 있다. 포털 업로드용 정적 파일은 다음 중 하나로 만든다.
-- 게임만 담은 별도 프로젝트로 분리 후 `output: "export"` (게임 페이지는 서버 기능을 쓰지 않아 가능)
-- 또는 지금처럼 esbuild로 한 파일(HTML)에 묶는 방식 (플레이 링크 아티팩트가 이 방식)
+`node scripts/build-portal.mjs <crazygames|poki|none>` 한 줄로 끝난다. 이미지·음악까지 넣은 index.html 한 파일(4.3MB)과 업로드용 zip(2.8MB)이 `dist-portal/`에 생긴다. 광고 플랫폼은 빌드에 고정되고, `none`은 광고·결제 없는 자체 배포용이다. 포털 밖에서 열면 SDK init에 8초 제한이 걸려 자동으로 광고 없는 모드로 동작한다(스모크 테스트 확인).
 
 ## 6. 코드로 확인한 것 / 못 한 것
 
